@@ -1,0 +1,270 @@
+// OpenC2 Gateway Protocol
+// 
+// This defines the protobuf schema for vehicle-to-gateway communication.
+// Vehicles send telemetry/heartbeats over UDP multicast; gateway sends commands.
+// The gateway decodes protobuf and broadcasts JSON to connected UI clients.
+//
+// See docs/PROTOCOL.md for the JSON format sent to clients.
+
+syntax = "proto3";
+
+package openc2;
+
+option go_package = "github.com/EthanMBoos/openc2-gateway/api/proto";
+
+// NOTE: Messages MUST fit in a single UDP datagram (<1400 bytes recommended)
+// to avoid fragmentation. Gateway should reject oversized frames.
+
+// ============================================================================
+// Vehicle → Gateway Envelope
+// ============================================================================
+
+// VehicleMessage is the envelope for all messages from vehicles to gateway.
+// The oneof field number acts as the type discriminator in the wire format.
+// Gateway unmarshals this first, then switches on which payload is set.
+message VehicleMessage {
+  oneof payload {
+    VehicleTelemetry telemetry = 1;
+    Heartbeat heartbeat = 2;
+    Alert alert = 3;
+    CommandAck command_ack = 4;
+  }
+}
+
+// ============================================================================
+// Telemetry Messages (Vehicle → Gateway)
+// ============================================================================
+
+// VehicleTelemetry is the primary telemetry message sent at high frequency.
+// Contains position, velocity, and status information.
+//
+// NOTE: The `status` field here is for vehicles that include status in every
+// telemetry packet. The gateway also tracks status independently based on
+// telemetry gaps (see PROTOCOL.md - Offline Detection). Vehicles may omit
+// this field if they send separate Heartbeat messages.
+//
+// TIMESTAMP WARNING: Vehicle clocks are UNTRUSTED (no RTC, no NTP, GPS cold start).
+// Use `sequence_num` for ordering, not `timestamp_ms`. The gateway adds its own
+// authoritative timestamp (`gts`) when translating to JSON.
+message VehicleTelemetry {
+  // Unique vehicle identifier (e.g., "ugv-husky-07")
+  string vehicle_id = 1;
+  
+  // Unix timestamp in milliseconds - UNTRUSTED, vehicle-local clock
+  // Use for display/logging only. See PROTOCOL.md for timestamp semantics.
+  int64 timestamp_ms = 2;
+  
+  // Current position
+  Location location = 3;
+  
+  // Ground speed in meters per second
+  float speed_ms = 4;
+  
+  // True heading in degrees [0, 360), 0=North, 90=East
+  // NOTE: 360 is normalized to 0. Gateway validates heading < 360.
+  float heading_deg = 5;
+  
+  // Monotonic sequence number for ordering AND deduplication (per-vehicle, wraps at 2^32)
+  // Gateway tracks high-water mark per vehicle; seq <= hwm is dropped as duplicate/stale.
+  // Use this instead of timestamp for ordering - handles clock skew/reset.
+  // See PROTOCOL.md "Gateway Deduplication" for wrap-around handling.
+  uint32 sequence_num = 6;
+  
+  // Current operational status (optional - absence means not reported this frame)
+  // Use has_status() to check presence. Gateway tracks status independently via telemetry gaps.
+  optional VehicleStatus status = 7;
+  
+  // Operating environment
+  VehicleEnvironment environment = 8;
+  
+  // Signal strength (0-5 bars, absence means unknown)
+  optional uint32 signal_strength = 9;
+  
+  // Battery percentage (0-100, absence means unknown)
+  optional uint32 battery_pct = 10;
+}
+
+// Geographic location in WGS84 coordinates
+message Location {
+  // Latitude in degrees (-90 to 90)
+  double latitude = 1;
+  
+  // Longitude in degrees (-180 to 180)
+  double longitude = 2;
+  
+  // Altitude MSL in meters
+  float altitude_msl_m = 3;
+}
+
+// Vehicle operational status
+// NOTE: Use `optional` field semantics - absence means "not reported", not "unknown".
+enum VehicleStatus {
+  STATUS_ONLINE = 0;
+  STATUS_OFFLINE = 1;
+  STATUS_STANDBY = 2;
+}
+
+// Operating environment/domain
+enum VehicleEnvironment {
+  ENV_UNKNOWN = 0;
+  ENV_AIR = 1;
+  ENV_GROUND = 2;
+  ENV_SURFACE = 3; // Water surface
+  ENV_SUBSURFACE = 4; // Underwater
+}
+
+// Heartbeat message sent periodically to confirm connectivity
+// Note: battery_pct is only in VehicleTelemetry (single source of truth)
+message Heartbeat {
+  string vehicle_id = 1;
+  int64 timestamp_ms = 2;
+  VehicleStatus status = 3;
+  int64 uptime_ms = 4;
+}
+
+// Alert message for warnings, errors, and events
+message Alert {
+  string vehicle_id = 1;
+  int64 timestamp_ms = 2;
+  AlertSeverity severity = 3;
+  string code = 4; // Machine-readable code (e.g., "GEOFENCE_BREACH")
+  string message = 5; // Human-readable description
+  Location location = 6; // Optional: where the alert occurred
+}
+
+enum AlertSeverity {
+  SEVERITY_INFO = 0;
+  SEVERITY_WARNING = 1;
+  SEVERITY_ERROR = 2;
+  SEVERITY_CRITICAL = 3;
+}
+
+// ============================================================================
+// Command Messages (Gateway → Vehicle)
+// ============================================================================
+
+// IDEMPOTENCY CONTRACT: Vehicles MUST implement command handlers idempotently.
+// The same command (identified by command_id) may be delivered multiple times
+// due to UDP retransmission, network duplication, or gateway retry logic.
+// All current commands (goto, stop, return_home, set_mode, set_speed) are
+// naturally idempotent. Future commands with side effects (e.g., fire_payload,
+// toggle_*) MUST either be idempotent or require vehicle-side deduplication.
+
+// Command is the envelope for all commands sent to vehicles
+message Command {
+  // Unique command ID for tracking acknowledgments
+  string command_id = 1;
+  
+  // Target vehicle ID
+  string vehicle_id = 2;
+  
+  // Unix timestamp in milliseconds (UTC)
+  int64 timestamp_ms = 3;
+  
+  // Command payload (one of the following)
+  oneof payload {
+    GotoCommand goto = 10;
+    StopCommand stop = 11;
+    ReturnHomeCommand return_home = 12;
+    SetModeCommand set_mode = 13;
+    SetSpeedCommand set_speed = 14;
+  }
+}
+
+// Navigate to a destination
+message GotoCommand {
+  Location destination = 1; // Includes altitude for aerial vehicles
+  float speed_ms = 2; // Target speed
+}
+
+// Emergency stop
+message StopCommand {
+  // Empty - just stop
+}
+
+// Return to home/launch position
+message ReturnHomeCommand {
+  // Empty - vehicle should return to its predefined home location
+}
+
+// Set operational mode
+message SetModeCommand {
+  OperationalMode mode = 1;
+}
+
+enum OperationalMode {
+  MODE_MANUAL = 0;
+  MODE_AUTONOMOUS = 1;
+  MODE_GUIDED = 2;
+}
+
+// Set target speed
+message SetSpeedCommand {
+  float speed_ms = 1;
+}
+
+// ============================================================================
+// Gateway → Vehicle Envelope
+// ============================================================================
+
+// GatewayMessage is the envelope for all messages from gateway to vehicles.
+// Vehicles receive this on multicast 239.255.0.2:14551, unmarshal, and switch
+// on which payload is set. Commands are filtered by vehicle_id; heartbeats
+// are processed by all vehicles.
+message GatewayMessage {
+  oneof payload {
+    Command command = 1;
+    GatewayHeartbeat heartbeat = 2;
+  }
+}
+
+// GatewayHeartbeat is sent periodically (every 1s) to let vehicles detect
+// gateway connectivity loss. If a vehicle doesn't receive a heartbeat for
+// OPENC2_GATEWAY_TIMEOUT (default 5s), it MUST trigger failsafe behavior.
+//
+// Failsafe modes (configured via OPENC2_FAILSAFE_MODE):
+//   - RTL: Return to home/launch position (default for aerial)
+//   - HOLD: Stop and hold current position (default for ground)
+//   - CONTINUE: Continue autonomous mission
+//   - LAND: Immediate landing (aerial only)
+//
+// See PROTOCOL.md "Gateway Loss Detection" for full behavioral specification.
+//
+// Vehicles SHOULD NOT use this for time sync - gateway clock is authoritative
+// for the UI, but vehicles should rely on GPS/internal clocks for autonomy.
+message GatewayHeartbeat {
+  // Unix timestamp in milliseconds (UTC) - gateway's authoritative clock
+  int64 timestamp_ms = 1;
+  
+  // Monotonic sequence number for ordering/loss detection (wraps at 2^32)
+  // Vehicles can detect packet loss by tracking gaps in sequence.
+  uint32 sequence_num = 2;
+  
+  // Number of currently connected UI clients (informational)
+  uint32 connected_clients = 3;
+  
+  // Number of vehicles in registry (informational)
+  uint32 tracked_vehicles = 4;
+}
+
+// ============================================================================
+// Command Acknowledgment (Vehicle → Gateway)
+// ============================================================================
+
+message CommandAck {
+  string command_id = 1;
+  string vehicle_id = 2;
+  int64 timestamp_ms = 3;
+  AckStatus status = 4;
+  string message = 5; // Human-readable status message
+}
+
+// Vehicle ack status values.
+// NOTE: "timeout" is a gateway-synthetic status (not in this enum) sent when
+// the vehicle doesn't respond within OPENC2_CMD_TIMEOUT. See PROTOCOL.md.
+enum AckStatus {
+  ACK_ACCEPTED = 0;
+  ACK_REJECTED = 1;
+  ACK_COMPLETED = 2;
+  ACK_FAILED = 3;
+}

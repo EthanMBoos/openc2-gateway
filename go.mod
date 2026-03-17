@@ -1,0 +1,11 @@
+module github.com/EthanMBoos/openc2-gateway
+
+go 1.26.1
+
+require (
+	github.com/gorilla/websocket v1.5.3
+	golang.org/x/net v0.52.0
+	google.golang.org/protobuf v1.36.11
+)
+
+require golang.org/x/sys v0.42.0 // indirect
