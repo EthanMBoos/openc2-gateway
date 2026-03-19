@@ -126,7 +126,7 @@ type VehicleCapabilities struct {
 
 // ExtensionCapability advertises which actions a vehicle supports within an extension.
 type ExtensionCapability struct {
-	// Extension namespace (e.g., "excavator", "camera")
+	// Extension namespace (e.g., "husky", "camera")
 	Namespace string `json:"namespace"`
 
 	// Schema version this vehicle implements
@@ -294,7 +294,7 @@ const (
 )
 
 // ExtensionCommandInput is the parsed form of an extension command from the UI.
-// Wire format: {"action":"extension","namespace":"excavator","payload":{"type":"setBucketAngle","angle":30}}
+// Wire format: {"action":"extension","namespace":"husky","payload":{"type":"setDriveMode","mode":"autonomous"}}
 // The payload.type field is the action routed to the codec's EncodeCommand method.
 type ExtensionCommandInput struct {
 	CommandID string         `json:"commandId"`

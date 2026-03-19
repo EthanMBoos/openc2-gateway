@@ -86,13 +86,13 @@ message VehicleTelemetry {
   // ── Extension Support ──
   // See docs/EXTENSIBILITY.md for full extension architecture.
   
-  // List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+  // List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
   // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
   // Vehicles SHOULD populate this on every telemetry frame.
   repeated string supported_extensions = 19;
   
   // Extension data by namespace. Each extension is versioned independently.
-  // Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+  // Key = namespace (e.g., "husky"), Value = versioned extension payload.
   // Gateway decodes these via registered codecs and translates to JSON for UI.
   // Unknown extensions are passed through with error metadata (graceful degradation).
   map<string, ExtensionData> extensions = 20;
@@ -106,7 +106,7 @@ message ExtensionData {
   // Start at 1; increment on breaking changes to payload schema.
   uint32 version = 1;
   
-  // Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+  // Serialized extension-specific proto (e.g., HuskyTelemetry).
   // Opaque to gateway core; decoded by namespace-specific codec.
   bytes payload = 2;
 }
@@ -185,10 +185,10 @@ message VehicleCapabilities {
 }
 
 // ExtensionCapability advertises which actions a vehicle supports within an extension.
-// This enables fine-grained filtering: a vehicle might support the "excavator" extension
+// This enables fine-grained filtering: a vehicle might support the "husky" extension
 // but only implement "setBucketAngle" and not "emergencyRetract".
 message ExtensionCapability {
-  // Extension namespace (e.g., "excavator", "camera")
+  // Extension namespace (e.g., "husky", "camera")
   // Must match a registered extension codec in the gateway.
   string namespace = 1;
   
@@ -310,7 +310,7 @@ message Command {
 // The gateway encodes this from JSON and broadcasts to vehicles.
 // Vehicles decode based on namespace and action.
 message ExtensionCommand {
-  // Extension namespace (e.g., "excavator") - must match a registered codec
+  // Extension namespace (e.g., "husky") - must match a registered codec
   string namespace = 1;
   
   // Action within the extension (e.g., "setBucketAngle")

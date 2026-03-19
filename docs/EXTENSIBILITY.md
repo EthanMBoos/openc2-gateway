@@ -17,12 +17,12 @@ Add extension support to `openc2.proto` without breaking existing messages:
 message VehicleTelemetry {
   // ... existing fields 1-10 ...
   
-  // List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+  // List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
   // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
   repeated string supported_extensions = 19;
   
   // Extension data by namespace. Each extension is versioned independently.
-  // Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+  // Key = namespace (e.g., "husky"), Value = versioned extension payload.
   map<string, ExtensionData> extensions = 20;
 }
 
@@ -33,7 +33,7 @@ message ExtensionData {
   // Codecs use this to select the correct decoder.
   uint32 version = 1;
   
-  // Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+  // Serialized extension-specific proto (e.g., HuskyTelemetry).
   bytes payload = 2;
 }
 
@@ -45,8 +45,8 @@ message Command {
 }
 
 message ExtensionCommand {
-  string namespace = 1;           // e.g., "excavator"
-  string action = 2;              // e.g., "setBucketAngle"
+  string namespace = 1;           // e.g., "husky"
+  string action = 2;              // e.g., "setDriveMode"
   uint32 version = 3;             // Schema version for command payload
   bytes payload = 4;              // Serialized extension-specific proto
 }
@@ -68,7 +68,7 @@ Gateway translates extensions to JSON for UI consumption.
 {
   "v": 1,
   "type": "telemetry",
-  "vid": "excavator-01",
+  "vid": "husky-01",
   "ts": 1710700800000,
   "gts": 1710700800001,
   "data": {
@@ -77,15 +77,15 @@ Gateway translates extensions to JSON for UI consumption.
     "heading": 45.0,
     "environment": "ground",
     "seq": 12345,
-    "supportedExtensions": ["excavator", "camera"],
+    "supportedExtensions": ["husky", "camera"],
     "extensions": {
-      "excavator": {
-        "_version": 2,
-        "bucketAngle": 45,
-        "hydraulicPressure": 1200,
-        "armExtension": 3.5,
-        "mode": "DIGGING",
-        "trackTension": 850
+      "husky": {
+        "_version": 1,
+        "driveMode": "AUTONOMOUS",
+        "eStopActive": false,
+        "batteryVoltage": 25.6,
+        "frontBumperContact": false,
+        "rearBumperContact": false
       }
     }
   }
@@ -97,16 +97,16 @@ Gateway translates extensions to JSON for UI consumption.
 {
   "v": 1,
   "type": "command",
-  "vid": "excavator-01",
+  "vid": "husky-01",
   "ts": 1710700800000,
   "data": {
     "commandId": "cmd-abc123",
     "action": "extension",
-    "namespace": "excavator",
-    "version": 2,
+    "namespace": "husky",
+    "version": 1,
     "payload": {
-      "type": "setBucketAngle",
-      "angle": 30
+      "type": "setDriveMode",
+      "mode": "autonomous"
     }
   }
 }
@@ -120,7 +120,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 {
   "v": 1,
   "type": "command_ack",
-  "vid": "excavator-01",
+  "vid": "husky-01",
   "ts": 1710700800005,
   "gts": 1710700800006,
   "data": {
@@ -137,13 +137,13 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 {
   "v": 1,
   "type": "command_ack",
-  "vid": "excavator-01",
+  "vid": "husky-01",
   "ts": 1710700800005,
   "gts": 1710700800006,
   "data": {
     "commandId": "cmd-abc123",
     "status": "rejected",
-    "message": "Vehicle does not support extension action 'deployBlade' (supported actions for 'excavator': setBucketAngle, setArmExtension, setBoomAngle, setSwingAngle)"
+    "message": "Vehicle does not support extension action 'setArmExtension' (supported actions for 'husky': setDriveMode, triggerEStop, clearEStop, resetFaults)"
   }
 }
 ```
@@ -173,23 +173,23 @@ Each extension ships a **manifest file** declaring its namespace and commands. F
 > **Phase 2:** Dynamic telemetry panels with gauges, badges, and color scales. For MVP, hard-code extension-specific panels in the UI.
 
 ```yaml
-# internal/extensions/excavator/manifest.yaml
+# internal/extensions/husky/manifest.yaml
 
-namespace: excavator
+namespace: husky
 version: "1.0"
-displayName: "Excavator Controls"
+displayName: "Husky UGV Controls"
 
 # Custom commands (appear in ActionPanel when vehicle supports this extension)
 commands:
-  - action: setBucketAngle
-    label: "Set Bucket"
-    description: "Set the bucket angle"
+  - action: setDriveMode
+    label: "Set Drive Mode"
+    description: "Switch between manual and autonomous drive"
         
-  - action: setArmExtension
-    label: "Extend Arm"
+  - action: clearEStop
+    label: "Clear E-Stop"
         
-  - action: emergencyRetract
-    label: "Emergency Retract"
+  - action: triggerEStop
+    label: "Trigger E-Stop"
     confirmation: true
 ```
 
@@ -206,39 +206,44 @@ commands:
 Each extension defines its own proto. For MVP, these live in-tree under `internal/extensions/`:
 
 ```protobuf
-// internal/extensions/excavator/excavator.proto
+// internal/extensions/husky/husky.proto
 
 syntax = "proto3";
-package openc2.extensions.excavator;
+package openc2.extensions.husky;
 
-option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator";
+option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky";
 
-// Telemetry extension (serialized into VehicleTelemetry.extensions["excavator"])
-message ExcavatorTelemetry {
-  float bucket_angle_deg = 1;
-  float hydraulic_pressure_psi = 2;
-  float arm_extension_m = 3;
-  ExcavatorMode mode = 4;
+// Telemetry extension (serialized into VehicleTelemetry.extensions["husky"])
+message HuskyTelemetry {
+  float battery_voltage_v = 1;
+  bool e_stop_active = 2;
+  bool front_bumper_contact = 3;
+  bool rear_bumper_contact = 4;
+  HuskyDriveMode drive_mode = 5;
 }
 
-enum ExcavatorMode {
-  EXCAVATOR_MODE_IDLE = 0;
-  EXCAVATOR_MODE_DIGGING = 1;
-  EXCAVATOR_MODE_DUMPING = 2;
-  EXCAVATOR_MODE_TRAVELING = 3;
+enum HuskyDriveMode {
+  HUSKY_DRIVE_MODE_IDLE = 0;
+  HUSKY_DRIVE_MODE_MANUAL = 1;
+  HUSKY_DRIVE_MODE_AUTONOMOUS = 2;
+  HUSKY_DRIVE_MODE_FAULT = 3;
 }
 
 // Command payloads (serialized into ExtensionCommand.payload)
-message SetBucketAngleCommand {
-  float angle_deg = 1;
+message SetDriveModeCommand {
+  HuskyDriveMode mode = 1;
 }
 
-message SetArmExtensionCommand {
-  float extension_m = 1;
+message TriggerEStopCommand {
+  // Empty - activates emergency stop
 }
 
-message EmergencyRetractCommand {
-  // Empty - just retract
+message ClearEStopCommand {
+  // Empty - clears emergency stop
+}
+
+message ResetFaultsCommand {
+  // Empty - reset drive system faults
 }
 ```
 
@@ -256,7 +261,7 @@ package extensions
 // Codec handles encoding/decoding for a specific extension namespace.
 // Each codec must handle version negotiation for its extension's schema.
 type Codec interface {
-    // Namespace returns the extension identifier (e.g., "excavator")
+    // Namespace returns the extension identifier (e.g., "husky")
     Namespace() string
     
     // SupportedVersions returns the schema versions this codec can decode.
@@ -361,14 +366,14 @@ func DecodeExtensions(extensions map[string]*ExtensionData) (map[string]any, err
 ### Example Extension Codec (MVP)
 
 ```go
-// internal/extensions/excavator/codec.go
+// internal/extensions/husky/codec.go
 
-package excavator
+package husky
 
 import (
     "fmt"
     
-    pb "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator"
+    pb "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
     "github.com/EthanMBoos/openc2-gateway/internal/extensions"
     "google.golang.org/protobuf/proto"
 )
@@ -379,66 +384,72 @@ func init() {
 
 type Codec struct{}
 
-func (c *Codec) Namespace() string { return "excavator" }
+func (c *Codec) Namespace() string { return "husky" }
 
 func (c *Codec) SupportedVersions() []uint32 { return []uint32{1} }
 
 func (c *Codec) DecodeTelemetry(version uint32, data []byte) (map[string]any, error) {
     if version != 1 {
-        return nil, fmt.Errorf("unsupported excavator telemetry version %d", version)
+        return nil, fmt.Errorf("unsupported husky telemetry version %d", version)
     }
     
-    var msg pb.ExcavatorTelemetry
+    var msg pb.HuskyTelemetry
     if err := proto.Unmarshal(data, &msg); err != nil {
-        return nil, fmt.Errorf("unmarshal excavator telemetry: %w", err)
+        return nil, fmt.Errorf("unmarshal husky telemetry: %w", err)
     }
     return map[string]any{
-        "bucketAngle":       msg.BucketAngleDeg,
-        "hydraulicPressure": msg.HydraulicPressurePsi,
-        "armExtension":      msg.ArmExtensionM,
-        "mode":              msg.Mode.String(),
+        "batteryVoltage":    msg.BatteryVoltageV,
+        "eStopActive":       msg.EStopActive,
+        "frontBumperContact": msg.FrontBumperContact,
+        "rearBumperContact":  msg.RearBumperContact,
+        "driveMode":         msg.DriveMode.String(),
     }, nil
 }
 
 func (c *Codec) EncodeCommand(action string, data map[string]any) (uint32, []byte, error) {
     switch action {
-    case "setBucketAngle":
-        angle, ok := data["angle"].(float64)
+    case "setDriveMode":
+        modeStr, ok := data["mode"].(string)
         if !ok {
-            return 0, nil, fmt.Errorf("missing or invalid 'angle' field")
+            return 0, nil, fmt.Errorf("missing or invalid 'mode' field")
         }
-        msg := &pb.SetBucketAngleCommand{AngleDeg: float32(angle)}
+        modeVal, ok := pb.HuskyDriveMode_value["HUSKY_DRIVE_MODE_"+strings.ToUpper(modeStr)]
+        if !ok {
+            return 0, nil, fmt.Errorf("unknown husky drive mode: %s", modeStr)
+        }
+        msg := &pb.SetDriveModeCommand{Mode: pb.HuskyDriveMode(modeVal)}
         payload, err := proto.Marshal(msg)
         return 1, payload, err
         
-    case "setArmExtension":
-        ext, ok := data["extension"].(float64)
-        if !ok {
-            return 0, nil, fmt.Errorf("missing or invalid 'extension' field")
-        }
-        msg := &pb.SetArmExtensionCommand{ExtensionM: float32(ext)}
+    case "triggerEStop":
+        msg := &pb.TriggerEStopCommand{}
         payload, err := proto.Marshal(msg)
         return 1, payload, err
         
-    case "emergencyRetract":
-        msg := &pb.EmergencyRetractCommand{}
+    case "clearEStop":
+        msg := &pb.ClearEStopCommand{}
+        payload, err := proto.Marshal(msg)
+        return 1, payload, err
+
+    case "resetFaults":
+        msg := &pb.ResetFaultsCommand{}
         payload, err := proto.Marshal(msg)
         return 1, payload, err
         
     default:
-        return 0, nil, fmt.Errorf("unknown excavator action: %s", action)
+        return 0, nil, fmt.Errorf("unknown husky action: %s", action)
     }
 }
 
 func (c *Codec) DecodeCommand(action string, data []byte) (map[string]any, error) {
     // Decode for logging/debugging - inverse of EncodeCommand
     switch action {
-    case "setBucketAngle":
-        var msg pb.SetBucketAngleCommand
+    case "setDriveMode":
+        var msg pb.SetDriveModeCommand
         if err := proto.Unmarshal(data, &msg); err != nil {
             return nil, err
         }
-        return map[string]any{"angle": msg.AngleDeg}, nil
+        return map[string]any{"mode": msg.Mode.String()}, nil
     // ... other actions
     default:
         return nil, fmt.Errorf("unknown action: %s", action)
@@ -466,7 +477,7 @@ import (
     // ...
     
     // Extension codecs - in-tree for MVP
-    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator"
+    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
 )
 
 func main() {
@@ -544,7 +555,7 @@ interface VehicleInstance {
     // ... core fields
     
     // Per-vehicle extension capabilities
-    supportedExtensions: string[];  // e.g., ["excavator", "camera"]
+    supportedExtensions: string[];  // e.g., ["husky", "camera"]
   };
   
   // Extension data by namespace (decoded from versioned payloads)
@@ -641,20 +652,20 @@ function ExtensionActionButton({
 > **MVP:** Hard-code extension panels for your first 1-2 projects. Extract to manifest-driven rendering once you have 3+ extensions and understand common patterns.
 
 ```typescript
-// components/panels/ExcavatorPanel.tsx (MVP - hard-coded)
+// components/panels/HuskyPanel.tsx (MVP - hard-coded)
 
-function ExcavatorPanel() {
+function HuskyPanel() {
   const vehicle = useSelectedVehicle();
-  const data = vehicle?.extensions?.excavator;
+  const data = vehicle?.extensions?.husky;
   
   if (!data) return null;
   
   return (
     <div className="extension-panel">
-      <h3>Excavator Status</h3>
-      <div>Bucket Angle: {data.bucketAngle}°</div>
-      <div>Hydraulic Pressure: {data.hydraulicPressure} psi</div>
-      <div>Mode: {data.mode}</div>
+      <h3>Husky UGV Status</h3>
+      <div>Drive Mode: {data.driveMode}</div>
+      <div>E-Stop: {data.eStopActive ? "ACTIVE" : "Clear"}</div>
+      <div>Battery: {data.batteryVoltage?.toFixed(1)} V</div>
     </div>
   );
 }
@@ -709,7 +720,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 | 1. Extension envelope | `extensions` field already in proto ✓ | Add `extensions` to `VehicleInstance` | 0.5 day |
 | 2. Extension registry | Create `internal/extensions/` with codec interface | — | 1 day |
 | 3. Telemetry translation | Decode extensions via codecs, include in JSON | Store extension data in vehicle state | 1 day |
-| 4. First codec | Implement excavator codec in-tree | Hard-coded ExcavatorPanel | 1 day |
+| 4. First codec | Implement husky codec in-tree | Hard-coded HuskyPanel | 1 day |
 | 5. Extension commands | Route `action: "extension"` through codecs | Extension buttons in ActionPanel | 1 day |
 | 6. Static manifests | `/manifests` returns static JSON | Fetch on connect | 0.5 day |
 
@@ -849,7 +860,7 @@ Capabilities are now advertised via `Heartbeat` messages. See `api/proto/openc2.
 
 ```protobuf
 message ExtensionCapability {
-  string namespace = 1;           // e.g., "excavator"
+  string namespace = 1;           // e.g., "husky"
   uint32 version = 2;             // Schema version vehicle implements
   repeated string supported_actions = 3;  // Empty = all actions supported
 }
@@ -862,7 +873,7 @@ The `supported_actions` field enables **granular capability advertisement**:
 | Empty `[]` | Vehicle supports all actions in extending namespace |
 | `["setBucketAngle", "setArmExtension"]` | Vehicle only supports these specific actions |
 
-This prevents the UI from showing "Deploy Blade" for an excavator that doesn't have a blade attachment.
+This prevents the UI from showing "Deploy Blade" for a vehicle that doesn't have a blade attachment.
 
 **Testing:**
 
@@ -873,8 +884,8 @@ go run ./cmd/testsender -vid ugv-husky-07
 # Fixed-wing (no stop command)
 go run ./cmd/testsender -vid fixed-wing-01 -env air -caps no-stop
 
-# Ground vehicle with excavator extension
-go run ./cmd/testsender -vid excavator-01 -env ground
+# Ground vehicle with Husky extension
+go run ./cmd/testsender -vid husky-01 -env ground
 
 # Observation-only sensor (no commands accepted)
 go run ./cmd/testsender -vid sensor-01 -caps none
@@ -975,7 +986,7 @@ message SensorMount {
 
 **Why Not Extension?**
 
-Sensors are **cross-cutting** — a vehicle might have excavator extensions AND cameras. Making sensors an extension would require every domain extension to depend on a "camera extension," creating coupling that defeats the purpose.
+Sensors are **cross-cutting** — a vehicle might have husky extensions AND cameras. Making sensors an extension would require every domain extension to depend on a "camera extension," creating coupling that defeats the purpose.
 
 ---
 

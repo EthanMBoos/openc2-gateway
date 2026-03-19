@@ -1,7 +1,7 @@
 package extensions
 
 // Package extensions provides the codec interface and registry for extension namespaces.
-// Each extension (e.g., "excavator") registers a Codec via init() to handle
+// Each extension (e.g., "husky") registers a Codec via init() to handle
 // telemetry decoding and command encoding for that namespace.
 
 // Codec handles encoding/decoding for a specific extension namespace.
@@ -12,7 +12,7 @@ package extensions
 //   - EncodeCommand always uses the latest version.
 //   - If version is unrecognized, return an error; do not silently corrupt data.
 type Codec interface {
-	// Namespace returns the extension identifier (e.g., "excavator").
+	// Namespace returns the extension identifier (e.g., "husky").
 	// Must be unique across all registered extensions.
 	Namespace() string
 

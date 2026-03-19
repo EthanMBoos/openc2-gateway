@@ -9,7 +9,7 @@
 
 ## Platform Philosophy
 
-OpenC2 is a **platform**, not an application. It must support different robotics projects — excavators, maritime vehicles, aerial platforms — without forking. Architecture decisions are evaluated against one question: *can a new team extend this without touching shared code?*
+OpenC2 is a **platform**, not an application. It must support different robotics projects — unmanned ground vehicles (UGV), unmanned surface vehicles (USV), and unmanned aerial vehicles (UAV) — without forking. Architecture decisions are evaluated against one question: *can a new team extend this without touching shared code?*
 
 | Layer | Principle |
 |-------|-----------|
@@ -24,12 +24,12 @@ OpenC2 is a **platform**, not an application. It must support different robotics
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                         EXTENSIONS (in-tree for MVP)                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐               │
-│  │   excavator/    │  │    maritime/    │  │     camera/     │               │
-│  │   *.proto       │  │    *.proto      │  │    *.proto      │               │
-│  │   manifest.yaml │  │   manifest.yaml │  │   manifest.yaml │               │
-│  │   codec.go      │  │    codec.go     │  │    codec.go     │               │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘               │
+│        ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
+│        │     husky/      │  │    skydio/      │  │   maritime/     │         │
+│        │   *.proto       │  │    *.proto      │  │    *.proto      │         │
+│        │   manifest.yaml │  │   manifest.yaml │  │   manifest.yaml │         │
+│        │   codec.go      │  │    codec.go     │  │    codec.go     │         │
+│        └─────────────────┘  └─────────────────┘  └─────────────────┘         │
 └──────────────────────────────────┬───────────────────────────────────────────┘
                                    │ imported at compile time
                                    ▼
@@ -71,24 +71,44 @@ The gateway has no dependency on the UI. The UI is a pure client — it never sp
 
 ## Gateway Package Map
 
-| Package | Path | Responsibility |
-|---------|------|----------------|
-| Proto schema | `api/proto/openc2.proto` | Canonical vehicle↔gateway wire types |
-| Frame types | `internal/protocol/frame.go` | JSON wire types for gateway↔UI |
-| Translation | `internal/protocol/translate.go` | `DecodeVehicleMessage()` entry point |
-| Frame builders | `internal/protocol/builders.go` | `NewStatusFrame()`, `NewWelcomeFrame()`, etc. |
-| Validation | `internal/protocol/validate.go` | Frame size + field constraints |
-| Sequence tracker | `internal/protocol/sequence.go` | Per-vehicle deduplication with wrap-around |
-| Vehicle registry | `internal/registry/registry.go` | Fleet state machine (online → standby → offline) |
-| Command tracker | `internal/command/tracker.go` | Rate limiting + timeout ACKs |
-| Command router | `internal/command/router.go` | JSON command → protobuf → multicast |
-| Multicast listener | `internal/telemetry/multicast.go` | UDP → decode → registry + broadcast |
-| WebSocket server | `internal/websocket/server.go` | Client lifecycle, broadcast fan-out |
-| WebSocket client | `internal/websocket/client.go` | Per-client read/write pumps, ping/pong |
-| Extension registry | `internal/extensions/registry.go` | Codec lookup by namespace |
-| Extension codec API | `internal/extensions/codec.go` | `Codec` interface contract |
-| Config | `internal/config/config.go` | Env-var loading with defaults |
-| Observability | `internal/observability/metrics.go` | Prometheus counters |
+```
+openc2-gateway/
+├── api/
+│   └── proto/
+│       └── openc2.proto              # Canonical vehicle↔gateway wire types
+│
+├── internal/
+│   ├── protocol/
+│   │   ├── frame.go                  # JSON wire types for gateway↔UI
+│   │   ├── translate.go              # DecodeVehicleMessage() entry point
+│   │   ├── builders.go               # NewStatusFrame(), NewWelcomeFrame(), etc.
+│   │   ├── validate.go               # Frame size + field constraints
+│   │   └── sequence.go               # Per-vehicle deduplication with wrap-around
+│   │
+│   ├── registry/
+│   │   └── registry.go               # Fleet state machine (online → standby → offline)
+│   │
+│   ├── command/
+│   │   ├── tracker.go                # Rate limiting + timeout ACKs
+│   │   └── router.go                 # JSON command → protobuf → multicast
+│   │
+│   ├── telemetry/
+│   │   └── multicast.go              # UDP → decode → registry + broadcast
+│   │
+│   ├── websocket/
+│   │   ├── server.go                 # Client lifecycle, broadcast fan-out
+│   │   └── client.go                 # Per-client read/write pumps, ping/pong
+│   │
+│   ├── extensions/
+│   │   ├── registry.go               # Codec lookup by namespace
+│   │   └── codec.go                  # Codec interface contract
+│   │
+│   ├── config/
+│   │   └── config.go                 # Env-var loading with defaults
+│   │
+│   └── observability/
+│       └── metrics.go                # Prometheus counters
+```
 
 ---
 
@@ -123,11 +143,11 @@ All vehicle messages are enveloped in `openc2.proto`. Extension protos define wh
 ```
 VehicleTelemetry (openc2.proto)
   ├── location, speed, heading, status    ← core (typed, validated by gateway)
-  ├── supported_extensions: ["excavator"] ← capability advertisement
+  ├── supported_extensions: ["husky"] ← capability advertisement
   └── extensions:
-        "excavator" → ExtensionData       ← versioned bytes, decoded by codec
-              version: 2
-              payload: <ExcavatorTelemetry proto bytes>
+        "husky" → ExtensionData            ← versioned bytes, decoded by codec
+              version: 1
+              payload: <HuskyTelemetry proto bytes>
 ```
 
 **Core absorbs universals.** If a concept applies to >2 vehicle types (sensors, missions, payloads), it belongs in `openc2.proto` as a first-class field — not as an extension that every team must implement independently.
@@ -145,7 +165,7 @@ TIER 1: Core Protocol  (Reserved — NOT valid extension namespaces)
   sensors, sensor, camera, mission, payload, core, openc2
 
 TIER 2: Domain Extensions  (team-prefixed)
-  excavator.bucket, excavator.arm
+  husky.drive, husky.bumpers
   maritime.sonar, maritime.anchor
   agriculture.sprayer, agriculture.seeder
 
@@ -174,9 +194,9 @@ openc2-gateway/
 │   ├── extensions/
 │   │   ├── registry.go             # Codec registry
 │   │   ├── codec.go                # Codec interface
-│   │   └── excavator/              # First extension (in-tree, MVP)
-│   │       ├── excavator.proto
-│   │       ├── excavator.pb.go
+│   │   └── husky/                  # First extension (in-tree, MVP)
+│   │       ├── husky.proto
+│   │       ├── husky.pb.go
 │   │       ├── codec.go
 │   │       └── manifest.yaml
 │   ├── protocol/
@@ -205,7 +225,7 @@ openc2-gateway/
 | Extension encoding | proto for wire, JSON for UI | Type-safe wire; no binary in WebSocket |
 | Extension validation boundary | **Both** — gateway rejects malformed, UI provides UX | Defense in depth |
 | Manifest deployment | Static JSON (MVP) → gateway serves at runtime (Phase 2) | Simple first, dynamic when needed |
-| Multiple namespaces per vehicle | Allowed — a vehicle can have `excavator` + `camera` | Composition over inheritance |
+| Multiple namespaces per vehicle | Allowed — a vehicle can have `husky` + `camera` | Composition over inheritance |
 | Unknown extensions | Fail with `_error` field, don't drop telemetry | Graceful degradation; clear integration signal |
 | Timestamp authority | Gateway clock (`gts`) is authoritative; vehicle `ts` is untrusted | Vehicles lack RTC/NTP; clock skew is common |
 | Command ordering guarantee | WebSocket in-order delivery; no retransmit | Commands are idempotent by contract |

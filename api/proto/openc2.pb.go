@@ -15,11 +15,12 @@
 package proto
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -520,12 +521,12 @@ type VehicleTelemetry struct {
 	SignalStrength *uint32 `protobuf:"varint,9,opt,name=signal_strength,json=signalStrength,proto3,oneof" json:"signal_strength,omitempty"`
 	// Battery percentage (0-100, absence means unknown)
 	BatteryPct *uint32 `protobuf:"varint,10,opt,name=battery_pct,json=batteryPct,proto3,oneof" json:"battery_pct,omitempty"`
-	// List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+	// List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
 	// Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
 	// Vehicles SHOULD populate this on every telemetry frame.
 	SupportedExtensions []string `protobuf:"bytes,19,rep,name=supported_extensions,json=supportedExtensions,proto3" json:"supported_extensions,omitempty"`
 	// Extension data by namespace. Each extension is versioned independently.
-	// Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+	// Key = namespace (e.g., "husky"), Value = versioned extension payload.
 	// Gateway decodes these via registered codecs and translates to JSON for UI.
 	// Unknown extensions are passed through with error metadata (graceful degradation).
 	Extensions    map[string]*ExtensionData `protobuf:"bytes,20,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -655,7 +656,7 @@ type ExtensionData struct {
 	// Codecs use this to select the correct decoder.
 	// Start at 1; increment on breaking changes to payload schema.
 	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	// Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+	// Serialized extension-specific proto (e.g., HuskyTelemetry).
 	// Opaque to gateway core; decoded by namespace-specific codec.
 	Payload       []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -936,11 +937,11 @@ func (x *VehicleCapabilities) GetSensors() []*SensorCapability {
 }
 
 // ExtensionCapability advertises which actions a vehicle supports within an extension.
-// This enables fine-grained filtering: a vehicle might support the "excavator" extension
+// This enables fine-grained filtering: a vehicle might support the "husky" extension
 // but only implement "setBucketAngle" and not "emergencyRetract".
 type ExtensionCapability struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Extension namespace (e.g., "excavator", "camera")
+	// Extension namespace (e.g., "husky", "camera")
 	// Must match a registered extension codec in the gateway.
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Schema version this vehicle implements.
@@ -1448,7 +1449,7 @@ func (*Command_Extension) isCommand_Payload() {}
 // Vehicles decode based on namespace and action.
 type ExtensionCommand struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Extension namespace (e.g., "excavator") - must match a registered codec
+	// Extension namespace (e.g., "husky") - must match a registered codec
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
 	// Action within the extension (e.g., "setBucketAngle")
 	Action string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
