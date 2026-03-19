@@ -1,75 +1,7 @@
-# OpenC2 Extensibility Architecture
+# OpenC2 Extensibility
 
-> **Purpose**: Design document for supporting multiple projects/teams with custom protocols, commands, and telemetry without forking the UI or gateway.
-
----
-
-## Problem Statement
-
-OpenC2 will support different types of projects with different teams and protocols:
-- Teams want to send **custom commands** from the UI (custom Action buttons)
-- Teams have **project-specific protos** with domain-specific message types
-- Teams want to display **custom state** beyond standard telemetry (e.g., bucket angle for excavators, sonar data for maritime)
-
-**Goal**: One codebase for UI and gateway — teams *extend* without *forking*.
-
----
-
-## Core Insight
-
-OpenC2 is a **platform**, not an **application**. The architecture must separate:
-
-| Layer | Description |
-|-------|-------------|
-| **Core protocol** | Position, heading, status, basic commands — universal across all vehicles |
-| **Domain-specific extensions** | Custom telemetry fields, custom commands, custom UI panels |
-
----
-
-## Solution: Schema-Driven Extensibility
-
-### Architecture Overview
-
-> **Note:** This diagram shows the conceptual architecture. For MVP, extensions live in-tree under `internal/extensions/`. See [Repository Strategy (MVP)](#repository-strategy-mvp) for current structure.
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        EXTENSIONS (in-tree for MVP)                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
-│  │   excavator/    │  │    maritime/    │  │     camera/     │              │
-│  │   *.proto       │  │    *.proto      │  │    *.proto      │              │
-│  │   manifest.yaml │  │   manifest.yaml │  │   manifest.yaml │              │
-│  │   codec.go      │  │    codec.go     │  │    codec.go     │              │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
-└───────────────────────────────┬─────────────────────────────────────────────┘
-                                │ imported as dependency
-                                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                             GATEWAY (core)                                  │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │ api/proto/openc2.proto                                              │    │
-│  │   - Core telemetry, commands, status                                │    │
-│  │   - Extension envelope: map<string, bytes> extensions               │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │ internal/extensions/                                                │    │
-│  │   - Extension registry (loads codecs at startup)                    │    │
-│  │   - Routes extension commands                                       │    │
-│  │   - Translates extension bytes ↔ JSON                               │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└───────────────────────────────┬─────────────────────────────────────────────┘
-                                │ WebSocket (JSON)
-                                ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                UI (OpenC2)                                  │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │ Manifest-driven rendering                                           │    │
-│  │   - Dynamic ActionPanel buttons from manifest                       │    │
-│  │   - Dynamic telemetry panels from manifest                          │    │
-│  │   - Extension data stored in VehicleInstance.extensions             │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+> **Purpose**: Extension codec/manifest spec, wire format, and implementation details.  
+> For system topology, platform philosophy, and repository strategy see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
 
@@ -730,42 +662,6 @@ function ExcavatorPanel() {
 
 ---
 
-## Repository Strategy (MVP)
-
-For MVP, extensions live **in-tree**. Split to separate repo when you have multiple contributing teams.
-
-### Directory Structure
-
-```
-openc2-gateway/
-├── api/proto/
-│   └── openc2.proto          # Core protocol
-├── internal/
-│   ├── extensions/           # Extension framework
-│   │   ├── registry.go       # Codec registry
-│   │   ├── codec.go          # Codec interface
-│   │   └── excavator/        # First extension (in-tree for MVP)
-│   │       ├── excavator.proto
-│   │       ├── excavator.pb.go
-│   │       ├── codec.go
-│   │       └── manifest.yaml
-│   ├── protocol/
-│   ├── registry/
-│   └── ...
-├── cmd/gateway/
-└── docs/
-```
-
-### When to Split
-
-| Trigger | Action |
-|---------|--------|
-| 3+ extensions | Consider `openc2-extensions/` monorepo |
-| External team contributing | Split to separate repo with CODEOWNERS |
-| Breaking change coordination issues | Consider Buf.build schema registry |
-
----
-
 ## Extension Decoding
 
 **Gateway always decodes extensions to JSON.** The WebSocket carries clean, human-readable JSON — no binary blobs, no base64.
@@ -801,28 +697,6 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 4. Once validated, PR to main branch
 
 **Key point:** All roads lead to `openc2.proto`. Extension protos define what goes *inside* the `extensions` bytes field — they're payloads nested in the OpenC2 envelope, not alternatives to it.
-
----
-
-## Key Design Decisions
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Where does validation live? | **Both** — gateway rejects malformed, UI provides UX | Defense in depth |
-| Proto for extensions? | **Yes** — proto for wire, JSON for UI display | Best of both: type-safe wire, easy UI consumption |
-| How are manifests deployed? | **Static JSON** (MVP) / Gateway serves them (Phase 2) | Simple deployment, no runtime complexity |
-| Multiple namespaces per vehicle? | **Yes** — a vehicle can have `excavator` + `camera` extensions | Composition over inheritance |
-| Unknown extensions? | **Fail with `_error` field** | Clear signal to integrate codec |
-
----
-
-## What This Architecture Provides
-
-1. **Single codebase** — no forks for different teams
-2. **Teams own their extensions** — they define proto + codec, you provide the platform
-3. **Graceful degradation** — unknown extensions show error, don't break telemetry
-4. **Type safety where it matters** — core protocol is typed, extensions are schema-validated
-5. **Testability** — codecs can be unit tested in CI
 
 ---
 
@@ -910,125 +784,12 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 
 ### Namespace Governance
 
-> **STATUS: GOVERNANCE RULES DEFINED** — CI enforcement not yet implemented.
-
-Namespace collision isn't just a CI check — it's a governance problem. Two teams wanting "camera" can't both have it, and first-come-first-served creates conflicts for cross-cutting concepts.
-
-#### Namespace Hierarchy
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         NAMESPACE TIERS                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  TIER 1: Core Protocol (Reserved - NOT extensions)                          │
-│    • sensors.*     → First-class in VehicleCapabilities.sensors             │
-│    • mission       → Core protocol (MissionCommand, MissionProgress)        │
-│    • payload       → Reserved for future core payload abstraction           │
-│    • camera        → Reserved (use sensors.camera_rgb, etc.)                │
-│                                                                             │
-│  TIER 2: Domain Extensions (Team-prefixed)                                  │
-│    • excavator.bucket, excavator.arm, excavator.hydraulics                  │
-│    • maritime.sonar, maritime.anchor, maritime.ballast                      │
-│    • agriculture.sprayer, agriculture.seeder                                │
-│                                                                             │
-│  TIER 3: Vendor/Project Extensions (Org-prefixed)                           │
-│    • acme.custom_widget                                                     │
-│    • darpa.subterranean_nav                                                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-#### Rules
-
-| Rule | Rationale |
-|------|-----------|
-| **Core absorbs universal concepts** | Sensors, missions, payloads are >90% common. They belong in `openc2.proto`, not extensions. |
-| **Extensions use `domain.component` format** | `excavator.bucket` not `bucket`. Ownership is unambiguous. |
-| **No bare single-word namespaces** | Prevents "camera" collision. Exception: legacy namespaces grandfathered in. |
-| **Org prefix for proprietary extensions** | `acme.secret_sauce` — clearly not shared. |
-
-#### Namespace Registry
-
-```yaml
-# openc2-extensions/namespaces.yaml
-
-# Reserved - these are core protocol, NOT valid extension namespaces
-reserved:
-  - sensors      # Use VehicleCapabilities.sensors
-  - sensor       # Alias, also reserved
-  - camera       # Use sensors.camera_* types
-  - mission      # Core MissionCommand
-  - payload      # Reserved for future
-  - core         # Reserved
-  - openc2       # Reserved
-
-# Domain extensions - team-prefixed
-domains:
-  excavator:
-    owner: excavator-team
-    components: [bucket, arm, hydraulics, tracks]
-  
-  maritime:
-    owner: maritime-team  
-    components: [sonar, anchor, ballast, rudder]
-  
-  agriculture:
-    owner: ag-robotics-team
-    components: [sprayer, seeder, harvester]
-  
-  uav:
-    owner: flight-team
-    components: [gimbal, payload_release, formation]
-
-# Legacy single-word namespaces (grandfathered, do not add new ones)
-legacy:
-  - excavator    # Pre-dates domain.component convention
-```
-
-#### CI Enforcement
-
-```yaml
-# .github/workflows/namespace-check.yml
-
-- name: Validate namespace format
-  run: |
-    for codec in */codec.go; do
-      ns=$(grep 'Namespace()' "$codec" | grep -o '"[^"]*"' | tr -d '"')
-      
-      # Check not reserved
-      if grep -q "^  - $ns$" namespaces.yaml; then
-        echo "ERROR: '$ns' is a reserved core namespace"
-        exit 1
-      fi
-      
-      # Check format (domain.component or legacy)
-      if ! echo "$ns" | grep -qE '^[a-z]+\.[a-z_]+$'; then
-        if ! grep -q "^  - $ns$" namespaces.yaml; then
-          echo "ERROR: '$ns' must use domain.component format (e.g., excavator.bucket)"
-          exit 1
-        fi
-      fi
-      
-      # Check registered
-      domain=$(echo "$ns" | cut -d. -f1)
-      if ! grep -q "^  $domain:$" namespaces.yaml; then
-        echo "ERROR: Domain '$domain' not registered in namespaces.yaml"
-        exit 1
-      fi
-    done
-```
-
-#### Migration Path
-
-For existing extensions using single-word namespaces:
-
-1. **Phase 1**: Grandfathered as `legacy` — CI allows them
-2. **Phase 2**: Deprecation warnings in gateway logs
-3. **Phase 3**: Migration to `domain.component` format with aliasing
-4. **Phase 4**: Remove legacy support
+> **STATUS: GOVERNANCE RULES DEFINED** — CI enforcement not yet implemented.  
+> Namespace tiers, rules, and the namespace registry are documented in [ARCHITECTURE.md](ARCHITECTURE.md#extension-namespace-governance).
 
 #### When to Promote to Core
 
-An extension should become core protocol when:
+An extension should become a core protocol field when:
 
 | Criterion | Threshold |
 |-----------|-----------|
@@ -1039,7 +800,7 @@ An extension should become core protocol when:
 
 Example: Sensors started as a potential extension, but every robotics project has cameras/LiDAR. Now it's `VehicleCapabilities.sensors` in core.
 
-**Priority:** MEDIUM — Current single-namespace convention works for 1-2 teams. Enforce before onboarding third team.
+**Priority:** MEDIUM — Enforce before onboarding third team.
 
 ---
 
