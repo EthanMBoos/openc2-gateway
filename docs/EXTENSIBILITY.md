@@ -57,6 +57,18 @@ message ExtensionCommand {
 - **Per-vehicle capabilities** — `supported_extensions` lets the UI filter actions based on what each vehicle actually supports.
 - **Independent versioning** — each extension evolves its schema independently; codecs handle version negotiation.
 
+### Codec Discovery
+
+Codecs self-register at startup via Go's `init()` mechanism. Import the package with a blank identifier:
+
+```go
+import (
+    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
+)
+```
+
+The underscore import triggers `init()`, which calls `extensions.Register()`. The gateway automatically routes telemetry and commands to the registered codec based on namespace. See [Gateway Implementation](#gateway-implementation) below for the full `Codec` interface.
+
 ### JSON Wire Format
 
 Gateway translates extensions to JSON for UI consumption.
@@ -114,7 +126,9 @@ Gateway translates extensions to JSON for UI consumption.
 
 **Extension command ACK:**
 
-Extension commands use the same `command_ack` structure as core commands. The gateway validates extension actions against `VehicleCapabilities.extensions[].supportedActions` before broadcasting:
+Extension commands use the same `command_ack` structure as core commands. The gateway validates extension actions against the vehicle's advertised capabilities before broadcasting:
+
+> **Naming convention:** Protobuf uses `snake_case` (e.g., `supported_actions`). JSON uses `camelCase` (e.g., `supportedActions`). The gateway translates automatically.
 
 ```json
 {

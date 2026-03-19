@@ -1,7 +1,8 @@
 # OpenC2 Gateway Protocol Specification
 
 > **Purpose**: Behavioral contracts and architecture for gateway ↔ UI communication.  
-> **Source of truth for types**: See [`internal/protocol/`](../internal/protocol/) for Go types, validation, and translation.
+> **Source of truth for types**: See [`internal/protocol/`](../internal/protocol/) for Go types, validation, and translation.  
+> **Terminology**: See [GLOSSARY.md](GLOSSARY.md) for definitions of `seq`, `gts`, `HWM`, and other key terms.
 
 ---
 
@@ -294,7 +295,7 @@ The UI SHOULD display this error to the operator so they know the command was no
                   ┌───────────┐
                   ▼           │
 ┌─────────┐   telemetry   ┌─────────┐
-│ OFFLINE │──────────────▶│ ONLINE  │
+│ OFFLINE │──────────────▶│ ONLINE  │◀─── [first telemetry from new vehicle]
 └─────────┘               └─────────┘
      ▲                         │
      │ 10s no telemetry        │ 3s no telemetry
@@ -303,6 +304,8 @@ The UI SHOULD display this error to the operator so they know the command was no
      └────────────────────│ STANDBY │
                           └─────────┘
 ```
+
+**Initial state:** When the gateway receives the first telemetry from a previously-unknown vehicle, it creates that vehicle in the `ONLINE` state. There is no explicit "first seen" state.
 
 Configurable via:
 ```bash
@@ -319,7 +322,9 @@ Telemetry packets reset the heartbeat timer (no need to send both simultaneously
 
 ## Gateway Loss Detection (Vehicle-Side)
 
-Vehicles MUST detect gateway connectivity loss and trigger appropriate failsafe behavior. The gateway broadcasts `GatewayHeartbeat` on multicast `239.255.0.2:14551` every **1 second**.
+> **STATUS: NOT IMPLEMENTED** — This section describes planned behavior. The `GatewayHeartbeat` message is not yet defined in `openc2.proto` and the gateway does not yet broadcast heartbeats. Vehicle-side failsafe is the vehicle's responsibility for MVP.
+
+Vehicles SHOULD detect gateway connectivity loss and trigger appropriate failsafe behavior. The gateway will broadcast `GatewayHeartbeat` on multicast `239.255.0.2:14551` every **1 second** once implemented.
 
 ### Detection
 

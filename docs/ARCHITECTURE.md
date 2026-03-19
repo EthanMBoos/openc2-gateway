@@ -3,7 +3,8 @@
 > **Scope**: System-level design for the OpenC2 platform — two repositories, one operator experience.  
 > For gateway build phases see [GATEWAY_IMPLEMENTATION.md](GATEWAY_IMPLEMENTATION.md).  
 > For extension codec/manifest specifics see [EXTENSIBILITY.md](EXTENSIBILITY.md).  
-> For wire-format behavioral contracts see [PROTOCOL.md](PROTOCOL.md).
+> For wire-format behavioral contracts see [PROTOCOL.md](PROTOCOL.md).  
+> For terminology definitions see [GLOSSARY.md](GLOSSARY.md).
 
 ---
 
@@ -67,48 +68,7 @@ OpenC2 is a **platform**, not an application. It must support different robotics
 
 The gateway has no dependency on the UI. The UI is a pure client — it never speaks directly to vehicles.
 
----
-
-## Gateway Package Map
-
-```
-openc2-gateway/
-├── api/
-│   └── proto/
-│       └── openc2.proto              # Canonical vehicle↔gateway wire types
-│
-├── internal/
-│   ├── protocol/
-│   │   ├── frame.go                  # JSON wire types for gateway↔UI
-│   │   ├── translate.go              # DecodeVehicleMessage() entry point
-│   │   ├── builders.go               # NewStatusFrame(), NewWelcomeFrame(), etc.
-│   │   ├── validate.go               # Frame size + field constraints
-│   │   └── sequence.go               # Per-vehicle deduplication with wrap-around
-│   │
-│   ├── registry/
-│   │   └── registry.go               # Fleet state machine (online → standby → offline)
-│   │
-│   ├── command/
-│   │   ├── tracker.go                # Rate limiting + timeout ACKs
-│   │   └── router.go                 # JSON command → protobuf → multicast
-│   │
-│   ├── telemetry/
-│   │   └── multicast.go              # UDP → decode → registry + broadcast
-│   │
-│   ├── websocket/
-│   │   ├── server.go                 # Client lifecycle, broadcast fan-out
-│   │   └── client.go                 # Per-client read/write pumps, ping/pong
-│   │
-│   ├── extensions/
-│   │   ├── registry.go               # Codec lookup by namespace
-│   │   └── codec.go                  # Codec interface contract
-│   │
-│   ├── config/
-│   │   └── config.go                 # Env-var loading with defaults
-│   │
-│   └── observability/
-│       └── metrics.go                # Prometheus counters
-```
+> For a package-by-package breakdown of `internal/` see [PACKAGE_MAP.md](PACKAGE_MAP.md).
 
 ---
 

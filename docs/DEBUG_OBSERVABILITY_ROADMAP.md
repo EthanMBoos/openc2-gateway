@@ -1,6 +1,8 @@
-# Gateway Debug & Observability Strategy
+# Gateway Debug & Observability — Roadmap
 
-> **Purpose**: Defines the tools, techniques, and phased implementation plan for debugging protocol translation issues, network problems, and message flow visibility in the OpenC2 gateway.
+> **STATUS: NOT IMPLEMENTED** — This document describes planned future capabilities. None of the phases below exist in the codebase yet. Do not reference these APIs or types in code — they will not compile.
+
+> **Purpose**: Defines the planned tools, techniques, and phased implementation for debugging protocol translation issues, network problems, and message flow visibility in the OpenC2 gateway.
 
 ---
 
