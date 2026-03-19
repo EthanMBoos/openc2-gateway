@@ -7,6 +7,7 @@ import (
 	"time"
 
 	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
+	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -110,6 +111,16 @@ func TelemetryToFrame(msg *pb.VehicleTelemetry) (*Frame, error) {
 	if msg.SignalStrength != nil {
 		strength := int(*msg.SignalStrength)
 		payload.SignalStrength = &strength
+	}
+
+	// Extension capabilities advertised by the vehicle
+	if len(msg.SupportedExtensions) > 0 {
+		payload.SupportedExtensions = msg.SupportedExtensions
+	}
+
+	// Decode extension telemetry via registered codecs
+	if len(msg.Extensions) > 0 {
+		payload.Extensions = extensions.DecodeAll(msg.Extensions)
 	}
 
 	return &Frame{

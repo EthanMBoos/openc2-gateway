@@ -65,13 +65,15 @@ type Location struct {
 
 // TelemetryPayload contains position, velocity, and state data.
 type TelemetryPayload struct {
-	Location       Location `json:"location"`
-	Speed          float64  `json:"speed"`                    // Speed in m/s
-	Heading        float64  `json:"heading"`                  // Heading in degrees [0, 360)
-	Environment    string   `json:"environment"`              // air, ground, surface, subsurface
-	Seq            uint32   `json:"seq"`                      // Monotonic sequence number for ordering
-	BatteryPct     *int     `json:"batteryPct,omitempty"`     // 0-100, nil if unknown
-	SignalStrength *int     `json:"signalStrength,omitempty"` // 0-5 bars, nil if unknown
+	Location            Location       `json:"location"`
+	Speed               float64        `json:"speed"`                         // Speed in m/s
+	Heading             float64        `json:"heading"`                       // Heading in degrees [0, 360)
+	Environment         string         `json:"environment"`                   // air, ground, surface, subsurface
+	Seq                 uint32         `json:"seq"`                           // Monotonic sequence number for ordering
+	BatteryPct          *int           `json:"batteryPct,omitempty"`          // 0-100, nil if unknown
+	SignalStrength      *int           `json:"signalStrength,omitempty"`      // 0-5 bars, nil if unknown
+	SupportedExtensions []string       `json:"supportedExtensions,omitempty"` // Namespaces this vehicle supports
+	Extensions          map[string]any `json:"extensions,omitempty"`          // Decoded extension telemetry
 }
 
 // ----------------------------------------------------------------------------
@@ -290,6 +292,25 @@ const (
 	ModeAutonomous = "autonomous"
 	ModeGuided     = "guided"
 )
+
+// ExtensionCommandInput is the parsed form of an extension command from the UI.
+// Wire format: {"action":"extension","namespace":"excavator","payload":{"type":"setBucketAngle","angle":30}}
+// The payload.type field is the action routed to the codec's EncodeCommand method.
+type ExtensionCommandInput struct {
+	CommandID string         `json:"commandId"`
+	Namespace string         `json:"namespace"`
+	Payload   map[string]any `json:"payload"` // Must contain "type" key identifying the action
+}
+
+// ExtensionAction returns the action name from the payload (payload.type).
+// Returns empty string if the payload is nil or "type" is not a string.
+func (e ExtensionCommandInput) ExtensionAction() string {
+	if e.Payload == nil {
+		return ""
+	}
+	t, _ := e.Payload["type"].(string)
+	return t
+}
 
 // ----------------------------------------------------------------------------
 // Hello / Welcome (Handshake)

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
+	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
 	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
 	"github.com/EthanMBoos/openc2-gateway/internal/registry"
 	"google.golang.org/protobuf/proto"
@@ -275,6 +276,38 @@ func (r *Router) buildProtoCommand(vehicleID, commandID, action string, dataByte
 		cmd.Payload = &pb.Command_SetSpeed{
 			SetSpeed: &pb.SetSpeedCommand{
 				SpeedMs: float32(speedCmd.Speed),
+			},
+		}
+
+	case "extension":
+		var extCmd protocol.ExtensionCommandInput
+		if err := json.Unmarshal(dataBytes, &extCmd); err != nil {
+			return nil, fmt.Errorf("invalid extension command: %w", err)
+		}
+		if extCmd.Namespace == "" {
+			return nil, fmt.Errorf("extension command missing namespace")
+		}
+		extAction := extCmd.ExtensionAction()
+		if extAction == "" {
+			return nil, fmt.Errorf("extension command missing payload.type")
+		}
+
+		codec := extensions.Get(extCmd.Namespace)
+		if codec == nil {
+			return nil, fmt.Errorf("no codec registered for extension namespace %q", extCmd.Namespace)
+		}
+
+		version, payload, err := codec.EncodeCommand(extAction, extCmd.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("encode extension command %s/%s: %w", extCmd.Namespace, extAction, err)
+		}
+
+		cmd.Payload = &pb.Command_Extension{
+			Extension: &pb.ExtensionCommand{
+				Namespace: extCmd.Namespace,
+				Action:    extAction,
+				Version:   version,
+				Payload:   payload,
 			},
 		}
 
