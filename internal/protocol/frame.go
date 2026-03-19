@@ -13,12 +13,12 @@ package protocol
 // Frame is the envelope for all JSON messages over WebSocket.
 // All messages follow this structure regardless of type.
 type Frame struct {
-	V    int         `json:"v"`             // Protocol version (currently 1)
-	Type string      `json:"type"`          // Message type identifier
-	Vid  string      `json:"vid"`           // Vehicle ID (source or target)
-	Ts   int64       `json:"ts"`            // Vehicle timestamp (UNTRUSTED - display only)
-	Gts  int64       `json:"gts,omitempty"` // Gateway timestamp (authoritative)
-	Data interface{} `json:"data"`          // Type-specific payload
+	ProtocolVersion    int         `json:"protocolVersion"`              // Protocol version (currently 1)
+	Type               string      `json:"type"`                         // Message type identifier
+	VehicleID          string      `json:"vehicleId"`                    // Vehicle ID (source or target)
+	TimestampMs        int64       `json:"timestampMs"`                  // Vehicle timestamp (UNTRUSTED - display only)
+	GatewayTimestampMs int64       `json:"gatewayTimestampMs,omitempty"` // Gateway timestamp (authoritative)
+	Data               interface{} `json:"data"`                         // Type-specific payload
 }
 
 // ProtocolVersion is the current protocol version.
@@ -41,11 +41,11 @@ const (
 	TypeError       = "error"
 )
 
-// Special vehicle IDs
+// Special vehicle IDs used for system messages
 const (
-	VidGateway = "_gateway"
-	VidClient  = "_client"
-	VidFleet   = "_fleet"
+	VehicleIDGateway = "_gateway" // Messages originating from the gateway
+	VehicleIDClient  = "_client"  // Messages originating from UI clients
+	VehicleIDFleet   = "_fleet"   // Fleet-wide broadcast messages
 )
 
 // ----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ type TelemetryPayload struct {
 	Heading             float64        `json:"heading"`                       // Heading in degrees [0, 360)
 	Environment         string         `json:"environment"`                   // air, ground, surface, subsurface
 	Seq                 uint32         `json:"seq"`                           // Monotonic sequence number for ordering
-	BatteryPct          *int           `json:"batteryPct,omitempty"`          // 0-100, nil if unknown
+	BatteryPercent      *int           `json:"batteryPct,omitempty"`          // 0-100, nil if unknown
 	SignalStrength      *int           `json:"signalStrength,omitempty"`      // 0-5 bars, nil if unknown
 	SupportedExtensions []string       `json:"supportedExtensions,omitempty"` // Namespaces this vehicle supports
 	Extensions          map[string]any `json:"extensions,omitempty"`          // Decoded extension telemetry

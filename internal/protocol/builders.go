@@ -9,13 +9,13 @@ import "fmt"
 
 // NewStatusFrame creates a status change frame.
 // signalStrength can be nil if unknown.
-func NewStatusFrame(vid string, status string, signalStrength *int, source string) *Frame {
+func NewStatusFrame(vehicleID string, status string, signalStrength *int, source string) *Frame {
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeStatus,
-		Vid:  vid,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeStatus,
+		VehicleID:          vehicleID,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: StatusPayload{
 			Status:         status,
 			SignalStrength: signalStrength,
@@ -27,11 +27,11 @@ func NewStatusFrame(vid string, status string, signalStrength *int, source strin
 // NewWelcomeFrame creates a welcome response frame.
 func NewWelcomeFrame(gatewayVersion string, fleet []VehicleSummary, telemetryRateHz, heartbeatIntervalMs int) *Frame {
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeWelcome,
-		Vid:  VidGateway,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeWelcome,
+		VehicleID:          VehicleIDGateway,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: WelcomePayload{
 			GatewayVersion:  gatewayVersion,
 			ProtocolVersion: ProtocolVersion,
@@ -47,11 +47,11 @@ func NewWelcomeFrame(gatewayVersion string, fleet []VehicleSummary, telemetryRat
 // NewErrorFrame creates an error response frame.
 func NewErrorFrame(code string, message string) *Frame {
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeError,
-		Vid:  VidGateway,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeError,
+		VehicleID:          VehicleIDGateway,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: ErrorPayload{
 			Code:    code,
 			Message: message,
@@ -63,11 +63,11 @@ func NewErrorFrame(code string, message string) *Frame {
 // Includes the commandId so the UI can correlate which command failed.
 func NewCommandErrorFrame(code string, message string, commandID string) *Frame {
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeError,
-		Vid:  VidGateway,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeError,
+		VehicleID:          VehicleIDGateway,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: ErrorPayload{
 			Code:      code,
 			Message:   message,
@@ -90,11 +90,11 @@ func NewFleetStatusFrame(vehicles []VehicleSummary) *Frame {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeFleetStatus,
-		Vid:  VidFleet,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeFleetStatus,
+		VehicleID:          VehicleIDFleet,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: FleetStatusPayload{
 			Vehicles:     vehicles,
 			TotalOnline:  online,
@@ -104,7 +104,7 @@ func NewFleetStatusFrame(vehicles []VehicleSummary) *Frame {
 }
 
 // NewGatewayCommandAckFrame creates an ack from the gateway (not vehicle).
-func NewGatewayCommandAckFrame(vid, commandID, status, message string) *Frame {
+func NewGatewayCommandAckFrame(vehicleID, commandID, status, message string) *Frame {
 	payload := CommandAckPayload{
 		CommandID: commandID,
 		Status:    status,
@@ -114,30 +114,30 @@ func NewGatewayCommandAckFrame(vid, commandID, status, message string) *Frame {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeCommandAck,
-		Vid:  vid,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
-		Data: payload,
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeCommandAck,
+		VehicleID:          vehicleID,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
+		Data:               payload,
 	}
 }
 
 // NewTimeoutAckFrame creates a synthetic timeout ack when a vehicle doesn't respond.
 // This tells the UI the command outcome is unknown (vehicle may or may not have received it).
-func NewTimeoutAckFrame(vid, commandID string, timeoutSeconds int) *Frame {
+func NewTimeoutAckFrame(vehicleID, commandID string, timeoutSeconds int) *Frame {
 	msg := fmt.Sprintf("No response from vehicle within %ds", timeoutSeconds)
-	return NewGatewayCommandAckFrame(vid, commandID, AckTimeout, msg)
+	return NewGatewayCommandAckFrame(vehicleID, commandID, AckTimeout, msg)
 }
 
 // NewGatewayAlertFrame creates an alert from the gateway (system alerts).
-func NewGatewayAlertFrame(vid, severity, code, message string, location *Location) *Frame {
+func NewGatewayAlertFrame(vehicleID, severity, code, message string, location *Location) *Frame {
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeAlert,
-		Vid:  vid,
-		Ts:   nowMs(),
-		Gts:  nowMs(),
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeAlert,
+		VehicleID:          vehicleID,
+		TimestampMs:        nowMs(),
+		GatewayTimestampMs: nowMs(),
 		Data: AlertPayload{
 			Severity: severity,
 			Code:     code,

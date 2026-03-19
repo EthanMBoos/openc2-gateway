@@ -78,11 +78,11 @@ Gateway translates extensions to JSON for UI consumption.
 **Telemetry with extensions:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "telemetry",
-  "vid": "husky-01",
-  "ts": 1710700800000,
-  "gts": 1710700800001,
+  "vehicleId": "husky-01",
+  "timestampMs": 1710700800000,
+  "gatewayTimestampMs": 1710700800001,
   "data": {
     "location": {"lat": 37.7749, "lng": -122.4194, "alt_msl": 10.0},
     "speed": 0.5,
@@ -107,10 +107,10 @@ Gateway translates extensions to JSON for UI consumption.
 **Extension command:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command",
-  "vid": "husky-01",
-  "ts": 1710700800000,
+  "vehicleId": "husky-01",
+  "timestampMs": 1710700800000,
   "data": {
     "commandId": "cmd-abc123",
     "action": "extension",
@@ -132,11 +132,11 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command_ack",
-  "vid": "husky-01",
-  "ts": 1710700800005,
-  "gts": 1710700800006,
+  "vehicleId": "husky-01",
+  "timestampMs": 1710700800005,
+  "gatewayTimestampMs": 1710700800006,
   "data": {
     "commandId": "cmd-abc123",
     "status": "accepted",
@@ -149,11 +149,11 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command_ack",
-  "vid": "husky-01",
-  "ts": 1710700800005,
-  "gts": 1710700800006,
+  "vehicleId": "husky-01",
+  "timestampMs": 1710700800005,
+  "gatewayTimestampMs": 1710700800006,
   "data": {
     "commandId": "cmd-abc123",
     "status": "rejected",

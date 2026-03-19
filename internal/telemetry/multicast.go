@@ -164,7 +164,7 @@ func (m *MulticastSource) Start(ctx context.Context, frames chan<- *protocol.Fra
 		default:
 			// Channel full, drop frame (telemetry is droppable)
 			slog.Debug("telemetry channel full, dropping frame",
-				"vid", frame.Vid,
+				"vehicle_id", frame.VehicleID,
 			)
 		}
 	}

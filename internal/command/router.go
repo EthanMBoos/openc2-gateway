@@ -119,18 +119,18 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	if actionData.CommandID == "" {
 		return r.errorResult(protocol.ErrInvalidMessage, "missing commandId")
 	}
-	if frame.Vid == "" || frame.Vid == protocol.VidClient || frame.Vid == protocol.VidGateway {
+	if frame.VehicleID == "" || frame.VehicleID == protocol.VehicleIDClient || frame.VehicleID == protocol.VehicleIDGateway {
 		return r.errorResult(protocol.ErrInvalidMessage, "invalid target vehicle ID")
 	}
 
 	// Verify vehicle exists in registry
-	vehicle := r.registry.Get(frame.Vid)
+	vehicle := r.registry.Get(frame.VehicleID)
 	if vehicle == nil {
 		return RouteResult{
 			Success: false,
 			Frame: protocol.NewCommandErrorFrame(
 				protocol.ErrVehicleNotFound,
-				fmt.Sprintf("vehicle %s not found in registry", frame.Vid),
+				fmt.Sprintf("vehicle %s not found in registry", frame.VehicleID),
 				actionData.CommandID,
 			),
 		}
@@ -150,7 +150,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	}
 
 	// Check rate limit via tracker
-	trackResult := r.tracker.Track(actionData.CommandID, frame.Vid, actionData.Action)
+	trackResult := r.tracker.Track(actionData.CommandID, frame.VehicleID, actionData.Action)
 	if !trackResult.Accepted {
 		return RouteResult{
 			Success: false,
@@ -159,7 +159,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	}
 
 	// Build protobuf command
-	pbCmd, err := r.buildProtoCommand(frame.Vid, actionData.CommandID, actionData.Action, dataBytes)
+	pbCmd, err := r.buildProtoCommand(frame.VehicleID, actionData.CommandID, actionData.Action, dataBytes)
 	if err != nil {
 		// Un-track the command since we couldn't build it
 		r.tracker.Acknowledge(actionData.CommandID)
@@ -195,7 +195,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	}
 
 	slog.Debug("command sent",
-		"vid", frame.Vid,
+		"vehicle_id", frame.VehicleID,
 		"action", actionData.Action,
 		"command_id", actionData.CommandID,
 	)
@@ -204,7 +204,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	return RouteResult{
 		Success: true,
 		Frame: protocol.NewGatewayCommandAckFrame(
-			frame.Vid,
+			frame.VehicleID,
 			actionData.CommandID,
 			protocol.AckAccepted,
 			"",

@@ -157,8 +157,8 @@ Every message flowing through the gateway gets a correlation ID for end-to-end t
 #### Example Log Output
 
 ```json
-{"level":"info","ts":"2026-03-17T14:32:01.234Z","msg":"frame.received","correlation_id":"01HQXYZ...","direction":"vehicle→gateway","type":"telemetry","vid":"ugv-husky-07","raw_bytes":1247}
-{"level":"info","ts":"2026-03-17T14:32:01.235Z","msg":"frame.translated","correlation_id":"01HQXYZ...","direction":"gateway→ui","type":"telemetry","vid":"ugv-husky-07","raw_bytes":892,"latency_us":1102}
+{"level":"info","timestampMs": "2026-03-17T14:32:01.234Z","msg":"frame.received","correlation_id":"01HQXYZ...","direction":"vehicle→gateway","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":1247}
+{"level":"info","timestampMs": "2026-03-17T14:32:01.235Z","msg":"frame.translated","correlation_id":"01HQXYZ...","direction":"gateway→ui","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":892,"latency_us":1102}
 ```
 
 #### Implementation
@@ -220,13 +220,13 @@ REST endpoints for inspecting gateway state and recent message history.
       "direction": "inbound",
       "protocol": "udp",
       "type": "telemetry",
-      "vid": "ugv-husky-07",
+      "vehicleId": "ugv-husky-07",
       "raw_size": 1247,
       "decoded": {
-        "v": 1,
+        "protocolVersion": 1,
         "type": "telemetry",
-        "vid": "ugv-husky-07",
-        "ts": 1710700800000,
+        "vehicleId": "ugv-husky-07",
+        "timestampMs": 1710700800000,
         "data": { "...": "..." }
       },
       "translation_latency_us": 1102,
@@ -252,7 +252,7 @@ REST endpoints for inspecting gateway state and recent message history.
       "raw_input": "eyJ2IjoxLCJ0eXBlIjoidGVsbWV0cnkiLC4uLn0=",
       "context": {
         "source_ip": "192.168.1.42",
-        "vid": "ugv-husky-07"
+        "vehicleId": "ugv-husky-07"
       }
     }
   ]
@@ -377,10 +377,10 @@ Clients connect with `"clientType": "debug"` in the hello message to receive cop
 
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "hello",
-  "vid": "_client",
-  "ts": 1710700800000,
+  "vehicleId": "_client",
+  "timestampMs": 1710700800000,
   "data": {
     "protocolVersion": 1,
     "clientId": "debug-inspector-01",
@@ -393,10 +393,10 @@ Debug clients receive `debug_frame` messages:
 
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "debug_frame",
-  "vid": "_gateway",
-  "ts": 1710700800050,
+  "vehicleId": "_gateway",
+  "timestampMs": 1710700800050,
   "data": {
     "correlation_id": "01HQXYZ...",
     "direction": "inbound",
@@ -428,10 +428,10 @@ Debug clients receive `debug_frame` messages:
 ├─────────────────────────────────────────────────────────────────────────┤
 │ ┌─ Original (protobuf) ─────────┐  ┌─ Translated (JSON) ──────────────┐ │
 │ │ vehicle_id: "ugv-husky-07"    │  │ {                                │ │
-│ │ timestamp: 1710700800000      │  │   "v": 1,                        │ │
+│ │ timestamp: 1710700800000      │  │   "protocolVersion": 1,                        │ │
 │ │ position {                    │  │   "type": "telemetry",           │ │
-│ │   latitude: 37.7749           │  │   "vid": "ugv-husky-07",         │ │
-│ │   longitude: -122.4194        │  │   "ts": 1710700800000,           │ │
+│ │   latitude: 37.7749           │  │   "vehicleId": "ugv-husky-07",         │ │
+│ │   longitude: -122.4194        │  │   "timestampMs": 1710700800000,           │ │
 │ │   altitude: 127.45            │  │   "data": {                      │ │
 │ │ }                             │  │     "position": {                │ │
 │ │ ...                           │  │       "lat": 37.7749,            │ │
@@ -447,10 +447,10 @@ Debug clients can send filter requests:
 
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "debug_filter",
-  "vid": "_client",
-  "ts": 1710700800000,
+  "vehicleId": "_client",
+  "timestampMs": 1710700800000,
   "data": {
     "vehicles": ["ugv-husky-07"],
     "types": ["command", "command_ack"],
@@ -482,10 +482,10 @@ OPENC2_RECORD_PATH=/var/log/openc2/session-$(date +%Y%m%d-%H%M%S).jsonl ./gatewa
 Each line is a self-contained record:
 
 ```json
-{"ts":1710700800000,"dir":"in","proto":"udp","src":"192.168.1.42:54321","raw":"CgN1Z3YtaHVza3ktMDcSA...","decoded":{"v":1,"type":"telemetry","vid":"ugv-husky-07"}}
-{"ts":1710700800001,"dir":"out","proto":"ws","dst":"client-a1b2c3d4","raw":"{\"v\":1,\"type\":\"telemetry\"...}","decoded":{"v":1,"type":"telemetry","vid":"ugv-husky-07"}}
-{"ts":1710700800050,"dir":"in","proto":"ws","src":"client-a1b2c3d4","raw":"{\"v\":1,\"type\":\"command\"...}","decoded":{"v":1,"type":"command","vid":"ugv-husky-07"}}
-{"ts":1710700800051,"dir":"out","proto":"udp","dst":"239.255.0.2:14551","raw":"CgN1Z3YtaHVza3ktMDcSB...","decoded":{"v":1,"type":"command","vid":"ugv-husky-07"}}
+{"timestampMs": 1710700800000,"dir":"in","proto":"udp","src":"192.168.1.42:54321","raw":"CgN1Z3YtaHVza3ktMDcSA...","decoded":{"protocolVersion": 1,"type":"telemetry","vehicleId": "ugv-husky-07"}}
+{"timestampMs": 1710700800001,"dir":"out","proto":"ws","dst":"client-a1b2c3d4","raw":"{\"v\":1,\"type\":\"telemetry\"...}","decoded":{"protocolVersion": 1,"type":"telemetry","vehicleId": "ugv-husky-07"}}
+{"timestampMs": 1710700800050,"dir":"in","proto":"ws","src":"client-a1b2c3d4","raw":"{\"v\":1,\"type\":\"command\"...}","decoded":{"protocolVersion": 1,"type":"command","vehicleId": "ugv-husky-07"}}
+{"timestampMs": 1710700800051,"dir":"out","proto":"udp","dst":"239.255.0.2:14551","raw":"CgN1Z3YtaHVza3ktMDcSB...","decoded":{"protocolVersion": 1,"type":"command","vehicleId": "ugv-husky-07"}}
 ```
 
 #### Replay Mode

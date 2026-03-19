@@ -185,7 +185,7 @@ go run ./cmd/testclient -bad-version
 # ✓ Connected to gateway
 # Testing: bad protocol version...
 #   Sent hello with v=99
-#   Response: {"v":1,"type":"error","vid":"_gateway",...}
+#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
 # ✓ Received expected PROTOCOL_VERSION_UNSUPPORTED error
 
 # Cleanup:
@@ -201,7 +201,7 @@ go run ./cmd/testclient -skip-hello
 # ✓ Connected to gateway
 # Testing: command without hello...
 #   Sent command without hello
-#   Response: {"v":1,"type":"error","vid":"_gateway",...}
+#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
 # ✓ Received expected INVALID_MESSAGE error
 
 # Cleanup:
@@ -221,11 +221,11 @@ pkill -f gateway
 **Telemetry Frame Format:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "telemetry",
-  "vid": "ugv-husky-01",
-  "ts": 1710700800000,
-  "gts": 1710700800000,
+  "vehicleId": "ugv-husky-01",
+  "timestampMs": 1710700800000,
+  "gatewayTimestampMs": 1710700800000,
   "data": {
     "location": {"lat": 37.7749, "lng": -122.4194},
     "speed": 2.0,
@@ -347,14 +347,14 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 # Send command after hello/welcome:
 
 # 1. Connect to ws://localhost:9000
-# 2. Send hello: {"v":1,"type":"hello","vid":"_client","ts":0,"data":{"protocolVersion":1,"clientId":"cmd-test"}}
+# 2. Send hello: {"protocolVersion": 1,"type":"hello","vehicleId": "_client","timestampMs": 0,"data":{"protocolVersion":1,"clientId":"cmd-test"}}
 # 3. Receive welcome
 # 4. Send command:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command",
-  "vid": "ugv-husky-01",
-  "ts": 1710700800000,
+  "vehicleId": "ugv-husky-01",
+  "timestampMs": 1710700800000,
   "data": {
     "action": "stop",
     "commandId": "cmd-001"
@@ -363,9 +363,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 # Expected response:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command_ack",
-  "vid": "ugv-husky-01",
+  "vehicleId": "ugv-husky-01",
   "data": {
     "commandId": "cmd-001",
     "status": "accepted"
@@ -388,9 +388,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 **Test: Goto Command**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command",
-  "vid": "ugv-husky-01",
+  "vehicleId": "ugv-husky-01",
   "data": {
     "action": "goto",
     "commandId": "goto-001",
@@ -403,9 +403,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 **Test: Set Mode Command**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command",
-  "vid": "uav-quad-02",
+  "vehicleId": "uav-quad-02",
   "data": {
     "action": "set_mode",
     "commandId": "mode-001",
@@ -428,9 +428,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 # Expected error response:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "error",
-  "vid": "_gateway",
+  "vehicleId": "_gateway",
   "data": {
     "code": "VEHICLE_NOT_FOUND",
     "message": "vehicle nonexistent-vehicle not found in registry",
@@ -445,9 +445,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 # Expected error response:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "error",
-  "vid": "_gateway",
+  "vehicleId": "_gateway",
   "data": {
     "code": "INVALID_MESSAGE",
     "message": "missing commandId"
@@ -462,9 +462,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 # Expected error response:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "error",
-  "vid": "_gateway",
+  "vehicleId": "_gateway",
   "data": {
     "code": "INVALID_MESSAGE",
     "message": "invalid set_mode command: invalid mode: turbo"
@@ -486,9 +486,9 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 # After 10th command in 1 second:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "error",
-  "vid": "_gateway",
+  "vehicleId": "_gateway",
   "data": {
     "code": "RATE_LIMITED",
     "message": "Command rate limit exceeded for ugv-husky-01 (10/sec)",
@@ -523,9 +523,9 @@ go run ./cmd/testsender -vid timeout-test
 
 # Expected: Client receives synthetic timeout ACK:
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command_ack",
-  "vid": "timeout-test",
+  "vehicleId": "timeout-test",
   "data": {
     "commandId": "cmd-xxx",
     "status": "timeout",

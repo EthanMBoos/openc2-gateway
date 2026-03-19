@@ -8,7 +8,7 @@ Quick reference for key terms used throughout the gateway documentation. Underst
 
 | Term | Definition |
 |------|------------|
-| **Frame** | A single JSON message on the WebSocket. Has `v` (version), `type`, `vid`, `ts`, and `data` fields. |
+| **Frame** | A single JSON message on the WebSocket. Has `protocolVersion`, `type`, `vehicleId`, `timestampMs`, `gatewayTimestampMs`, and `data` fields. |
 | **Envelope** | The protobuf wrapper (`VehicleMessage`) that discriminates message types on the vehicle⟷gateway link. |
 | **Payload** | The `data` field contents within a frame — varies by message type. |
 
@@ -18,12 +18,12 @@ Quick reference for key terms used throughout the gateway documentation. Underst
 
 | Term | Definition |
 |------|------------|
-| **ts** | Vehicle timestamp (milliseconds since Unix epoch). **UNTRUSTED** — vehicles lack RTC/NTP. Use for display only. |
-| **gts** | Gateway timestamp. Added by gateway when translating to JSON. **Authoritative** for cross-vehicle correlation. |
+| **timestampMs** | Vehicle timestamp (milliseconds since Unix epoch). **UNTRUSTED** — vehicles lack RTC/NTP. Use for display only. |
+| **gatewayTimestampMs** | Gateway timestamp. Added by gateway when translating to JSON. **Authoritative** for cross-vehicle correlation. |
 | **seq** | Sequence number. Monotonic counter per vehicle, wraps at 2³². The **only reliable** way to order telemetry. |
 | **HWM** | High-water mark. The last accepted `seq` for a vehicle. Used for deduplication — `seq ≤ HWM` is dropped as stale. |
 
-> ⚠️ **Never filter or reject telemetry based on `ts`.** Vehicle clocks drift hours or days. Use `seq` for ordering, `gts` for correlation.
+> ⚠️ **Never filter or reject telemetry based on `timestampMs`.** Vehicle clocks drift hours or days. Use `seq` for ordering, `gatewayTimestampMs` for correlation.
 
 ---
 

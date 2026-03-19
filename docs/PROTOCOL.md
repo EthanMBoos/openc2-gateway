@@ -226,10 +226,10 @@ The `hello` → `welcome` handshake performs version negotiation:
 **Welcome message includes:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "welcome",
-  "vid": "_gateway",
-  "ts": 1710700800000,
+  "vehicleId": "_gateway",
+  "timestampMs": 1710700800000,
   "data": {
     "gatewayVersion": "0.1.0",
     "protocolVersion": 1,
@@ -265,11 +265,11 @@ UI ◀── error {code: "RATE_LIMITED", message: "..."} ──┘
 **Error frame format:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "error",
-  "vid": "_gateway",
-  "ts": 1710700800000,
-  "gts": 1710700800000,
+  "vehicleId": "_gateway",
+  "timestampMs": 1710700800000,
+  "gatewayTimestampMs": 1710700800000,
   "data": {
     "code": "RATE_LIMITED",
     "message": "Command rate limit exceeded for ugv-husky-07 (10/sec)",
@@ -418,11 +418,11 @@ UI ◀── command_ack {timeout} ───────┘ (synthetic, from gat
 **Timeout ack format:**
 ```json
 {
-  "v": 1,
+  "protocolVersion": 1,
   "type": "command_ack",
-  "vid": "ugv-husky-07",
-  "ts": 1710700805000,
-  "gts": 1710700805000,
+  "vehicleId": "ugv-husky-07",
+  "timestampMs": 1710700805000,
+  "gatewayTimestampMs": 1710700805000,
   "data": {
     "commandId": "abc123",
     "status": "timeout",
@@ -527,7 +527,7 @@ Special: `_gateway`, `_fleet`, `_client`
 - Absolute time calculations
 - Timeout/expiry logic
 
-### Gateway Timestamps (`gts`)
+### Gateway Timestamps (`gatewayTimestampMs`)
 
 The gateway stamps each frame with its local time on receipt. This is the **authoritative timestamp** for:
 - Cross-vehicle event correlation
@@ -535,13 +535,13 @@ The gateway stamps each frame with its local time on receipt. This is the **auth
 - Latency measurements
 
 ```json
-{"v":1, "type":"telemetry", "vid":"ugv-husky-07", "ts":1710700800000, "gts":1710700800123, "data":{...}}
+{"protocolVersion":1, "type":"telemetry", "vehicleId":"ugv-husky-07", "timestampMs":1710700800000, "gatewayTimestampMs":1710700800123, "data":{...}}
 ```
 
 | Field | Source | Trust Level | Use For |
-|-------|--------|-------------|--------|
-| `ts` | Vehicle | Untrusted | Display, per-vehicle ordering |
-| `gts` | Gateway | Authoritative | Correlation, logging, latency |
+|-------|--------|-------------|---------|
+| `timestampMs` | Vehicle | Untrusted | Display, per-vehicle ordering |
+| `gatewayTimestampMs` | Gateway | Authoritative | Correlation, logging, latency |
 
 ---
 

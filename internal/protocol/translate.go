@@ -104,7 +104,7 @@ func TelemetryToFrame(msg *pb.VehicleTelemetry) (*Frame, error) {
 	// Optional battery (absence means unknown)
 	if msg.BatteryPct != nil {
 		pct := int(*msg.BatteryPct)
-		payload.BatteryPct = &pct
+		payload.BatteryPercent = &pct
 	}
 
 	// Optional signal strength (absence means unknown)
@@ -124,12 +124,12 @@ func TelemetryToFrame(msg *pb.VehicleTelemetry) (*Frame, error) {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeTelemetry,
-		Vid:  msg.VehicleId,
-		Ts:   msg.TimestampMs,
-		Gts:  nowMs(),
-		Data: payload,
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeTelemetry,
+		VehicleID:          msg.VehicleId,
+		TimestampMs:        msg.TimestampMs,
+		GatewayTimestampMs: nowMs(),
+		Data:               payload,
 	}, nil
 }
 
@@ -152,12 +152,12 @@ func HeartbeatToFrame(msg *pb.Heartbeat) (*Frame, error) {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeHeartbeat,
-		Vid:  msg.VehicleId,
-		Ts:   msg.TimestampMs,
-		Gts:  nowMs(),
-		Data: payload,
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeHeartbeat,
+		VehicleID:          msg.VehicleId,
+		TimestampMs:        msg.TimestampMs,
+		GatewayTimestampMs: nowMs(),
+		Data:               payload,
 	}, nil
 }
 
@@ -190,12 +190,12 @@ func AlertToFrame(msg *pb.Alert) (*Frame, error) {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeAlert,
-		Vid:  msg.VehicleId,
-		Ts:   msg.TimestampMs,
-		Gts:  nowMs(),
-		Data: payload,
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeAlert,
+		VehicleID:          msg.VehicleId,
+		TimestampMs:        msg.TimestampMs,
+		GatewayTimestampMs: nowMs(),
+		Data:               payload,
 	}, nil
 }
 
@@ -218,12 +218,12 @@ func CommandAckToFrame(msg *pb.CommandAck) (*Frame, error) {
 	}
 
 	return &Frame{
-		V:    ProtocolVersion,
-		Type: TypeCommandAck,
-		Vid:  msg.VehicleId,
-		Ts:   msg.TimestampMs,
-		Gts:  nowMs(),
-		Data: payload,
+		ProtocolVersion:    ProtocolVersion,
+		Type:               TypeCommandAck,
+		VehicleID:          msg.VehicleId,
+		TimestampMs:        msg.TimestampMs,
+		GatewayTimestampMs: nowMs(),
+		Data:               payload,
 	}, nil
 }
 

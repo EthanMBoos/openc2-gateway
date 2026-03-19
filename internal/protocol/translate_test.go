@@ -25,21 +25,21 @@ func TestTelemetryToFrame(t *testing.T) {
 					Longitude:    -122.4194,
 					AltitudeMslM: 10.5,
 				},
-				SpeedMs:    1.5,
-				HeadingDeg: 145.0,
+				SpeedMs:     1.5,
+				HeadingDeg:  145.0,
 				Environment: pb.VehicleEnvironment_ENV_GROUND,
-				BatteryPct: proto.Uint32(85),
+				BatteryPct:  proto.Uint32(85),
 			},
 			wantErr: false,
 			check: func(t *testing.T, f *Frame) {
-				if f.V != 1 {
-					t.Errorf("expected v=1, got %d", f.V)
+				if f.ProtocolVersion != 1 {
+					t.Errorf("expected v=1, got %d", f.ProtocolVersion)
 				}
 				if f.Type != "telemetry" {
 					t.Errorf("expected type=telemetry, got %s", f.Type)
 				}
-				if f.Vid != "ugv-husky-07" {
-					t.Errorf("expected vid=ugv-husky-07, got %s", f.Vid)
+				if f.VehicleID != "ugv-husky-07" {
+					t.Errorf("expected vid=ugv-husky-07, got %s", f.VehicleID)
 				}
 
 				data := f.Data.(TelemetryPayload)
@@ -55,8 +55,8 @@ func TestTelemetryToFrame(t *testing.T) {
 				if data.Environment != "ground" {
 					t.Errorf("expected environment=ground, got %s", data.Environment)
 				}
-				if data.BatteryPct == nil || *data.BatteryPct != 85 {
-					t.Errorf("expected batteryPct=85, got %v", data.BatteryPct)
+				if data.BatteryPercent == nil || *data.BatteryPercent != 85 {
+					t.Errorf("expected batteryPct=85, got %v", data.BatteryPercent)
 				}
 			},
 		},
@@ -89,13 +89,13 @@ func TestTelemetryToFrame(t *testing.T) {
 				VehicleId:   "ugv-husky-07",
 				TimestampMs: 1710700800000,
 				Location:    &pb.Location{Latitude: 37.7749, Longitude: -122.4194},
-				// BatteryPct omitted = unknown
+				// BatteryPercent omitted = unknown
 			},
 			wantErr: false,
 			check: func(t *testing.T, f *Frame) {
 				data := f.Data.(TelemetryPayload)
-				if data.BatteryPct != nil {
-					t.Errorf("expected batteryPct=nil for unknown, got %d", *data.BatteryPct)
+				if data.BatteryPercent != nil {
+					t.Errorf("expected batteryPct=nil for unknown, got %d", *data.BatteryPercent)
 				}
 			},
 		},
@@ -177,10 +177,10 @@ func TestGotoCommandToProto(t *testing.T) {
 
 func TestFrameJSONMarshaling(t *testing.T) {
 	frame := &Frame{
-		V:    1,
-		Type: "telemetry",
-		Vid:  "ugv-husky-07",
-		Ts:   1710700800000,
+		ProtocolVersion: 1,
+		Type:            "telemetry",
+		VehicleID:       "ugv-husky-07",
+		TimestampMs:     1710700800000,
 		Data: TelemetryPayload{
 			Location: Location{
 				Lat: 37.7749,
@@ -203,14 +203,14 @@ func TestFrameJSONMarshaling(t *testing.T) {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 
-	if result["v"] != float64(1) {
-		t.Errorf("expected v=1, got %v", result["v"])
+	if result["protocolVersion"] != float64(1) {
+		t.Errorf("expected protocolVersion=1, got %v", result["protocolVersion"])
 	}
 	if result["type"] != "telemetry" {
 		t.Errorf("expected type=telemetry, got %v", result["type"])
 	}
-	if result["vid"] != "ugv-husky-07" {
-		t.Errorf("expected vid=ugv-husky-07, got %v", result["vid"])
+	if result["vehicleId"] != "ugv-husky-07" {
+		t.Errorf("expected vehicleId=ugv-husky-07, got %v", result["vehicleId"])
 	}
 
 	dataMap := result["data"].(map[string]interface{})

@@ -13,9 +13,9 @@ func TestSequenceTracker_FirstMessage(t *testing.T) {
 		t.Error("first message should be accepted")
 	}
 
-	hwm, ok := st.HighWaterMark("ugv-husky-01")
-	if !ok || hwm != 100 {
-		t.Errorf("expected hwm=100, got hwm=%d, ok=%v", hwm, ok)
+	highWaterMark, ok := st.HighWaterMark("ugv-husky-01")
+	if !ok || highWaterMark != 100 {
+		t.Errorf("expected highWaterMark=100, got highWaterMark=%d, ok=%v", highWaterMark, ok)
 	}
 }
 
@@ -91,10 +91,10 @@ func TestSequenceTracker_MultipleVehicles(t *testing.T) {
 
 	// Cross-vehicle shouldn't affect each other
 	if st.Accept("ugv-husky-01", 50) {
-		t.Error("vehicle 1 seq 50 should be rejected (below hwm)")
+		t.Error("vehicle 1 seq 50 should be rejected (below highWaterMark)")
 	}
 	if !st.Accept("ugv-husky-02", 100) {
-		t.Error("vehicle 2 seq 100 should be accepted (above its hwm)")
+		t.Error("vehicle 2 seq 100 should be accepted (above its highWaterMark)")
 	}
 
 	if st.VehicleCount() != 2 {
@@ -153,10 +153,10 @@ func TestSeqAfter(t *testing.T) {
 		{0, 0, false},
 		{100, 100, false},
 		// Wrap-around cases
-		{0, 0xFFFFFFFF, true},  // 0 comes after max (wrapped)
-		{1, 0xFFFFFFFF, true},  // 1 comes after max (wrapped)
-		{10, 0xFFFFFFF0, true}, // Small after near-max (wrapped)
-		{0xFFFFFFFF, 0, false}, // max does NOT come after 0
+		{0, 0xFFFFFFFF, true},   // 0 comes after max (wrapped)
+		{1, 0xFFFFFFFF, true},   // 1 comes after max (wrapped)
+		{10, 0xFFFFFFF0, true},  // Small after near-max (wrapped)
+		{0xFFFFFFFF, 0, false},  // max does NOT come after 0
 		{0xFFFFFFF0, 10, false}, // near-max does NOT come after small
 	}
 

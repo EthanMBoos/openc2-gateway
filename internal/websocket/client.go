@@ -197,7 +197,7 @@ func (c *Client) handleMessage(data []byte) error {
 	}
 
 	// Validate protocol version
-	if frame.V != protocol.ProtocolVersion {
+	if frame.ProtocolVersion != protocol.ProtocolVersion {
 		c.SendError(protocol.ErrProtocolVersionUnsupported,
 			"unsupported protocol version")
 		return nil

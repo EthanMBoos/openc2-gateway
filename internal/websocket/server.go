@@ -256,7 +256,7 @@ func (s *Server) handleCommand(c *Client, frame *protocol.Frame) error {
 
 	if !result.Success {
 		slog.Debug("command rejected",
-			"vid", frame.Vid,
+			"vehicle_id", frame.VehicleID,
 			"reason", result.Frame.Data,
 		)
 	}
