@@ -170,9 +170,10 @@ message VehicleCapabilities {
   // An empty list means observation-only (no commands accepted).
   repeated string supported_commands = 1;
   
-  // Extension namespaces this vehicle supports (e.g., ["excavator", "camera"]).
-  // UI uses this to filter ActionPanel buttons for extension commands.
-  repeated string supported_extensions = 2;
+  // Extension capabilities with specific supported actions.
+  // More granular than just namespace - includes which commands within each extension
+  // the vehicle actually implements.
+  repeated ExtensionCapability extensions = 2;
   
   // Whether vehicle accepts mission waypoint sequences.
   // If false, only single-point commands (goto) are supported.
@@ -181,6 +182,25 @@ message VehicleCapabilities {
   // Sensors attached to this vehicle.
   // Used by UI to display camera feeds, visualize sensor FOV, etc.
   repeated SensorCapability sensors = 4;
+}
+
+// ExtensionCapability advertises which actions a vehicle supports within an extension.
+// This enables fine-grained filtering: a vehicle might support the "excavator" extension
+// but only implement "setBucketAngle" and not "emergencyRetract".
+message ExtensionCapability {
+  // Extension namespace (e.g., "excavator", "camera")
+  // Must match a registered extension codec in the gateway.
+  string namespace = 1;
+  
+  // Schema version this vehicle implements.
+  // Gateway can use this to select appropriate codec version.
+  uint32 version = 2;
+  
+  // Specific actions this vehicle supports within the extension.
+  // If empty, vehicle supports ALL actions defined in the manifest.
+  // If populated, vehicle ONLY supports these specific actions.
+  // Example: ["setBucketAngle", "setArmExtension"] (but not "emergencyRetract")
+  repeated string supported_actions = 3;
 }
 
 // SensorCapability describes an attached sensor with stream info.

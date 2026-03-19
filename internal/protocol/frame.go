@@ -112,14 +112,27 @@ type VehicleCapabilities struct {
 	// Core commands this vehicle supports: "goto", "stop", "return_home", "set_mode", "set_speed"
 	SupportedCommands []string `json:"supportedCommands"`
 
-	// Extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
-	SupportedExtensions []string `json:"supportedExtensions"`
+	// Extension capabilities with specific supported actions
+	Extensions []ExtensionCapability `json:"extensions"`
 
 	// Whether vehicle accepts mission waypoint sequences
 	SupportsMissions bool `json:"supportsMissions"`
 
 	// Sensors attached to this vehicle
 	Sensors []SensorCapability `json:"sensors,omitempty"`
+}
+
+// ExtensionCapability advertises which actions a vehicle supports within an extension.
+type ExtensionCapability struct {
+	// Extension namespace (e.g., "excavator", "camera")
+	Namespace string `json:"namespace"`
+
+	// Schema version this vehicle implements
+	Version uint32 `json:"version"`
+
+	// Specific actions this vehicle supports within the extension.
+	// Empty means all actions; populated means only these specific actions.
+	SupportedActions []string `json:"supportedActions"`
 }
 
 // SensorCapability describes an attached sensor with stream info.

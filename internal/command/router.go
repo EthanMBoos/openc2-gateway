@@ -136,12 +136,13 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	}
 
 	// Validate command against vehicle capabilities (fail-fast)
-	if !r.isCommandSupported(vehicle, actionData.Action) {
+	if !r.isCommandSupported(vehicle, actionData.Action, dataBytes) {
+		errMsg := r.buildCapabilityErrorMessage(vehicle, actionData.Action, dataBytes)
 		return RouteResult{
 			Success: false,
 			Frame: protocol.NewCommandErrorFrame(
 				protocol.ErrCommandNotSupported,
-				fmt.Sprintf("vehicle %s does not support command '%s'", frame.Vid, actionData.Action),
+				errMsg,
 				actionData.CommandID,
 			),
 		}
@@ -308,8 +309,8 @@ var coreCommands = []string{"goto", "stop", "return_home", "set_mode", "set_spee
 // Returns true if:
 //   - Vehicle has no capabilities advertised (legacy compatibility - allow all)
 //   - Vehicle capabilities include this command in supported_commands
-//   - Command is an extension command and vehicle supports that extension
-func (r *Router) isCommandSupported(vehicle *registry.Vehicle, action string) bool {
+//   - For extension commands: vehicle supports that extension namespace + specific action
+func (r *Router) isCommandSupported(vehicle *registry.Vehicle, action string, dataBytes []byte) bool {
 	caps := vehicle.Capabilities
 
 	// No capabilities advertised = legacy vehicle, allow all commands
@@ -332,13 +333,83 @@ func (r *Router) isCommandSupported(vehicle *registry.Vehicle, action string) bo
 		}
 	}
 
-	// Extension command - would need namespace check
-	// For now, allow extension commands if the vehicle supports any extensions
-	// Full extension validation requires the command to include namespace
+	// Extension command - validate namespace and action
 	if action == "extension" {
-		return len(caps.SupportedExtensions) > 0
+		return r.isExtensionCommandSupported(caps, dataBytes)
 	}
 
 	// Unknown command type - let buildProtoCommand reject it
 	return true
+}
+
+// extensionCommandData is used to parse extension command payloads for validation.
+type extensionCommandData struct {
+	Namespace string `json:"namespace"`
+	Payload   struct {
+		Type string `json:"type"` // The specific action within the extension
+	} `json:"payload"`
+}
+
+// isExtensionCommandSupported checks if vehicle supports a specific extension command.
+func (r *Router) isExtensionCommandSupported(caps *protocol.VehicleCapabilities, dataBytes []byte) bool {
+	// Parse extension command details
+	var extCmd extensionCommandData
+	if err := json.Unmarshal(dataBytes, &extCmd); err != nil {
+		// Can't parse - let buildProtoCommand handle it
+		return true
+	}
+
+	if extCmd.Namespace == "" {
+		// No namespace specified - let buildProtoCommand reject it
+		return true
+	}
+
+	// Find matching extension capability
+	for _, ext := range caps.Extensions {
+		if ext.Namespace == extCmd.Namespace {
+			// Found the extension namespace
+			// If SupportedActions is empty, vehicle supports all actions in this extension
+			if len(ext.SupportedActions) == 0 {
+				return true
+			}
+
+			// Check if specific action is supported
+			actionType := extCmd.Payload.Type
+			if actionType == "" {
+				// No action type specified - let buildProtoCommand handle validation
+				return true
+			}
+
+			for _, supportedAction := range ext.SupportedActions {
+				if supportedAction == actionType {
+					return true
+				}
+			}
+
+			// Extension found but action not supported
+			return false
+		}
+	}
+
+	// Extension namespace not found in vehicle capabilities
+	return false
+}
+
+// buildCapabilityErrorMessage creates a descriptive error for capability rejection.
+func (r *Router) buildCapabilityErrorMessage(vehicle *registry.Vehicle, action string, dataBytes []byte) string {
+	vid := vehicle.ID
+
+	// For extension commands, provide specific namespace/action info
+	if action == "extension" {
+		var extCmd extensionCommandData
+		if err := json.Unmarshal(dataBytes, &extCmd); err == nil && extCmd.Namespace != "" {
+			actionType := extCmd.Payload.Type
+			if actionType != "" {
+				return fmt.Sprintf("vehicle %s does not support extension command '%s/%s'", vid, extCmd.Namespace, actionType)
+			}
+			return fmt.Sprintf("vehicle %s does not support extension '%s'", vid, extCmd.Namespace)
+		}
+	}
+
+	return fmt.Sprintf("vehicle %s does not support command '%s'", vid, action)
 }

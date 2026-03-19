@@ -426,17 +426,23 @@ func capabilitiesToJSON(caps *pb.VehicleCapabilities) *VehicleCapabilities {
 	}
 
 	result := &VehicleCapabilities{
-		SupportedCommands:   caps.SupportedCommands,
-		SupportedExtensions: caps.SupportedExtensions,
-		SupportsMissions:    caps.SupportsMissions,
+		SupportedCommands: caps.SupportedCommands,
+		SupportsMissions:  caps.SupportsMissions,
 	}
 
 	// Ensure slices are non-nil for JSON serialization ([] not null)
 	if result.SupportedCommands == nil {
 		result.SupportedCommands = []string{}
 	}
-	if result.SupportedExtensions == nil {
-		result.SupportedExtensions = []string{}
+
+	// Translate extension capabilities
+	if len(caps.Extensions) > 0 {
+		result.Extensions = make([]ExtensionCapability, 0, len(caps.Extensions))
+		for _, ext := range caps.Extensions {
+			result.Extensions = append(result.Extensions, extensionCapToJSON(ext))
+		}
+	} else {
+		result.Extensions = []ExtensionCapability{}
 	}
 
 	// Translate sensors
@@ -448,6 +454,22 @@ func capabilitiesToJSON(caps *pb.VehicleCapabilities) *VehicleCapabilities {
 	}
 
 	return result
+}
+
+// extensionCapToJSON converts protobuf ExtensionCapability to JSON struct.
+func extensionCapToJSON(ext *pb.ExtensionCapability) ExtensionCapability {
+	cap := ExtensionCapability{
+		Namespace: ext.Namespace,
+		Version:   ext.Version,
+	}
+
+	if len(ext.SupportedActions) > 0 {
+		cap.SupportedActions = ext.SupportedActions
+	} else {
+		cap.SupportedActions = []string{} // empty = all actions
+	}
+
+	return cap
 }
 
 // sensorToJSON converts a protobuf SensorCapability to JSON struct.

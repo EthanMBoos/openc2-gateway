@@ -176,6 +176,50 @@ Gateway translates extensions to JSON for UI consumption:
 }
 ```
 
+**Extension command ACK:**
+
+Extension commands use the same `command_ack` structure as core commands. The gateway validates extension actions against `VehicleCapabilities.extensions[].supportedActions` before broadcasting:
+
+```json
+{
+  "v": 1,
+  "type": "command_ack",
+  "vid": "excavator-01",
+  "ts": 1710700800005,
+  "gts": 1710700800006,
+  "data": {
+    "commandId": "cmd-abc123",
+    "status": "accepted",
+    "message": ""
+  }
+}
+```
+
+**Extension capability validation:** The gateway rejects extension commands that the vehicle doesn't support:
+
+```json
+{
+  "v": 1,
+  "type": "command_ack",
+  "vid": "excavator-01",
+  "ts": 1710700800005,
+  "gts": 1710700800006,
+  "data": {
+    "commandId": "cmd-abc123",
+    "status": "rejected",
+    "message": "Vehicle does not support extension action 'deployBlade' (supported actions for 'excavator': setBucketAngle, setArmExtension, setBoomAngle, setSwingAngle)"
+  }
+}
+```
+
+| ACK Status | Meaning for Extension Commands |
+|------------|-------------------------------|
+| `accepted` | Command validated; broadcast to vehicle |
+| `rejected` | Extension namespace unknown OR action not in `supportedActions` |
+| `timeout` | No vehicle response within `OPENC2_CMD_TIMEOUT` (default 5s) |
+| `completed` | Vehicle confirms action executed |
+| `failed` | Vehicle reports execution error |
+
 **UI filtering:** The `supportedExtensions` array enables the UI to show only relevant commands:
 ```typescript
 // ActionPanel.tsx - filter extension commands by vehicle capabilities
@@ -1104,36 +1148,138 @@ function ExtensionPanel({ namespace, data }: Props) {
 
 **Priority:** HIGH — Without this, a single bad PR from any team can break the UI for all operators.
 
-### Namespace Collision Prevention
+### Namespace Governance
 
-> **STATUS: NOT YET IMPLEMENTED** — Low effort, should implement before onboarding third team.
+> **STATUS: GOVERNANCE RULES DEFINED** — CI enforcement not yet implemented.
 
-Two teams could independently choose the same namespace (e.g., `camera`). The first merged PR wins; the second breaks silently.
+Namespace collision isn't just a CI check — it's a governance problem. Two teams wanting "camera" can't both have it, and first-come-first-served creates conflicts for cross-cutting concepts.
 
-**Recommended approach:**
+#### Namespace Hierarchy
 
-1. Create `namespaces.yaml` registry in extensions repo root:
-   ```yaml
-   # Authoritative namespace registry - add entries via PR
-   excavator: excavator-team
-   maritime: maritime-team
-   camera: perception-team
-   ```
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         NAMESPACE TIERS                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  TIER 1: Core Protocol (Reserved - NOT extensions)                          │
+│    • sensors.*     → First-class in VehicleCapabilities.sensors             │
+│    • mission       → Core protocol (MissionCommand, MissionProgress)        │
+│    • payload       → Reserved for future core payload abstraction           │
+│    • camera        → Reserved (use sensors.camera_rgb, etc.)                │
+│                                                                             │
+│  TIER 2: Domain Extensions (Team-prefixed)                                  │
+│    • excavator.bucket, excavator.arm, excavator.hydraulics                  │
+│    • maritime.sonar, maritime.anchor, maritime.ballast                      │
+│    • agriculture.sprayer, agriculture.seeder                                │
+│                                                                             │
+│  TIER 3: Vendor/Project Extensions (Org-prefixed)                           │
+│    • acme.custom_widget                                                     │
+│    • darpa.subterranean_nav                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
 
-2. CI check that validates PRs don't introduce collisions:
-   ```yaml
-   - name: Check namespace registry
-     run: |
-       for codec in */codec.go; do
-         ns=$(grep 'Namespace()' "$codec" | grep -o '"[^"]*"' | tr -d '"')
-         if ! grep -q "^$ns:" namespaces.yaml; then
-           echo "ERROR: Namespace '$ns' not registered in namespaces.yaml"
-           exit 1
-         fi
-       done
-   ```
+#### Rules
 
-This catches errors at PR time, not when an operator opens the UI and sees a broken panel.
+| Rule | Rationale |
+|------|-----------|
+| **Core absorbs universal concepts** | Sensors, missions, payloads are >90% common. They belong in `openc2.proto`, not extensions. |
+| **Extensions use `domain.component` format** | `excavator.bucket` not `bucket`. Ownership is unambiguous. |
+| **No bare single-word namespaces** | Prevents "camera" collision. Exception: legacy namespaces grandfathered in. |
+| **Org prefix for proprietary extensions** | `acme.secret_sauce` — clearly not shared. |
+
+#### Namespace Registry
+
+```yaml
+# openc2-extensions/namespaces.yaml
+
+# Reserved - these are core protocol, NOT valid extension namespaces
+reserved:
+  - sensors      # Use VehicleCapabilities.sensors
+  - sensor       # Alias, also reserved
+  - camera       # Use sensors.camera_* types
+  - mission      # Core MissionCommand
+  - payload      # Reserved for future
+  - core         # Reserved
+  - openc2       # Reserved
+
+# Domain extensions - team-prefixed
+domains:
+  excavator:
+    owner: excavator-team
+    components: [bucket, arm, hydraulics, tracks]
+  
+  maritime:
+    owner: maritime-team  
+    components: [sonar, anchor, ballast, rudder]
+  
+  agriculture:
+    owner: ag-robotics-team
+    components: [sprayer, seeder, harvester]
+  
+  uav:
+    owner: flight-team
+    components: [gimbal, payload_release, formation]
+
+# Legacy single-word namespaces (grandfathered, do not add new ones)
+legacy:
+  - excavator    # Pre-dates domain.component convention
+```
+
+#### CI Enforcement
+
+```yaml
+# .github/workflows/namespace-check.yml
+
+- name: Validate namespace format
+  run: |
+    for codec in */codec.go; do
+      ns=$(grep 'Namespace()' "$codec" | grep -o '"[^"]*"' | tr -d '"')
+      
+      # Check not reserved
+      if grep -q "^  - $ns$" namespaces.yaml; then
+        echo "ERROR: '$ns' is a reserved core namespace"
+        exit 1
+      fi
+      
+      # Check format (domain.component or legacy)
+      if ! echo "$ns" | grep -qE '^[a-z]+\.[a-z_]+$'; then
+        if ! grep -q "^  - $ns$" namespaces.yaml; then
+          echo "ERROR: '$ns' must use domain.component format (e.g., excavator.bucket)"
+          exit 1
+        fi
+      fi
+      
+      # Check registered
+      domain=$(echo "$ns" | cut -d. -f1)
+      if ! grep -q "^  $domain:$" namespaces.yaml; then
+        echo "ERROR: Domain '$domain' not registered in namespaces.yaml"
+        exit 1
+      fi
+    done
+```
+
+#### Migration Path
+
+For existing extensions using single-word namespaces:
+
+1. **Phase 1**: Grandfathered as `legacy` — CI allows them
+2. **Phase 2**: Deprecation warnings in gateway logs
+3. **Phase 3**: Migration to `domain.component` format with aliasing
+4. **Phase 4**: Remove legacy support
+
+#### When to Promote to Core
+
+An extension should become core protocol when:
+
+| Criterion | Threshold |
+|-----------|-----------|
+| Adoption | >80% of projects use it |
+| Stability | No breaking changes for 6+ months |
+| Cross-cutting | Multiple domains need it (not domain-specific) |
+| Abstraction | Clear, generic interface (not team-specific quirks) |
+
+Example: Sensors started as a potential extension, but every robotics project has cameras/LiDAR. Now it's `VehicleCapabilities.sensors` in core.
+
+**Priority:** MEDIUM — Current single-namespace convention works for 1-2 teams. Enforce before onboarding third team.
 
 ---
 
@@ -1173,9 +1319,29 @@ Previously, all vehicles implicitly accepted all core commands (`goto`, `stop`, 
 Capabilities are now advertised via `Heartbeat` messages. See `api/proto/openc2.proto` for the full schema:
 
 - `VehicleCapabilities` — lists supported commands, extensions, mission support, and sensors
+- `ExtensionCapability` — granular extension support with namespace, version, and specific action list
 - `SensorCapability` — describes attached sensors with stream URLs and mounting info
 - Gateway validates commands against capabilities (fail-fast with `COMMAND_NOT_SUPPORTED` error)
 - Capabilities included in `welcome` message fleet snapshot
+
+**Extension Capability Structure:**
+
+```protobuf
+message ExtensionCapability {
+  string namespace = 1;           // e.g., "excavator"
+  uint32 version = 2;             // Schema version vehicle implements
+  repeated string supported_actions = 3;  // Empty = all actions supported
+}
+```
+
+The `supported_actions` field enables **granular capability advertisement**:
+
+| `supported_actions` value | Meaning |
+|--------------------------|---------|
+| Empty `[]` | Vehicle supports all actions in extending namespace |
+| `["setBucketAngle", "setArmExtension"]` | Vehicle only supports these specific actions |
+
+This prevents the UI from showing "Deploy Blade" for an excavator that doesn't have a blade attachment.
 
 **Testing:**
 
@@ -1185,6 +1351,9 @@ go run ./cmd/testsender -vid ugv-husky-07
 
 # Fixed-wing (no stop command)
 go run ./cmd/testsender -vid fixed-wing-01 -env air -caps no-stop
+
+# Ground vehicle with excavator extension
+go run ./cmd/testsender -vid excavator-01 -env ground
 
 # Observation-only sensor (no commands accepted)
 go run ./cmd/testsender -vid sensor-01 -caps none
@@ -1202,7 +1371,14 @@ function ActionPanel({ vehicle }: Props) {
       {caps.supportedCommands.includes('stop') && <StopButton />}
       {caps.supportedCommands.includes('goto') && <GotoButton />}
       {caps.supportedCommands.includes('return_home') && <RTBButton />}
-      {/* Extension buttons filtered by caps.supportedExtensions */}
+      
+      {/* Extension buttons filtered by caps.extensions */}
+      {caps.extensions.map(ext => (
+        ext.supportedActions.map(action => (
+          <ExtensionButton key={`${ext.namespace}:${action}`} 
+            namespace={ext.namespace} action={action} />
+        ))
+      ))}
     </>
   );
 }
