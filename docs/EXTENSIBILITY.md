@@ -83,9 +83,24 @@ Add extension support to `openc2.proto` without breaking existing messages:
 message VehicleTelemetry {
   // ... existing fields 1-10 ...
   
-  // Extension data (opaque to gateway core)
-  // Key = namespace (e.g., "excavator"), Value = serialized extension proto
-  map<string, bytes> extensions = 20;
+  // List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+  // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+  repeated string supported_extensions = 19;
+  
+  // Extension data by namespace. Each extension is versioned independently.
+  // Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+  map<string, ExtensionData> extensions = 20;
+}
+
+// ExtensionData wraps extension payloads with version metadata.
+// This allows schema evolution per-extension without breaking the gateway.
+message ExtensionData {
+  // Schema version for this extension's payload format.
+  // Codecs use this to select the correct decoder.
+  uint32 version = 1;
+  
+  // Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+  bytes payload = 2;
 }
 
 message Command {
@@ -97,12 +112,16 @@ message Command {
 
 message ExtensionCommand {
   string namespace = 1;           // e.g., "excavator"
-  string action = 2;              // e.g., "setBucketAngle"  
-  bytes payload = 3;              // Serialized extension-specific proto
+  string action = 2;              // e.g., "setBucketAngle"
+  uint32 version = 3;             // Schema version for command payload
+  bytes payload = 4;              // Serialized extension-specific proto
 }
 ```
 
-**Key design principle**: Gateway core doesn't need to understand extension contents — it passes `bytes` through. This decouples gateway releases from extension releases.
+**Key design principles**:
+- **Gateway core doesn't parse extension contents** — it routes versioned bytes to codecs. This decouples gateway releases from extension releases.
+- **Per-vehicle capabilities** — `supported_extensions` lets the UI filter actions based on what each vehicle actually supports.
+- **Independent versioning** — each extension evolves its schema independently; codecs handle version negotiation.
 
 ### JSON Wire Format
 
@@ -122,12 +141,15 @@ Gateway translates extensions to JSON for UI consumption:
     "heading": 45.0,
     "environment": "ground",
     "seq": 12345,
+    "supportedExtensions": ["excavator", "camera"],
     "extensions": {
       "excavator": {
+        "_version": 2,
         "bucketAngle": 45,
         "hydraulicPressure": 1200,
         "armExtension": 3.5,
-        "mode": "DIGGING"
+        "mode": "DIGGING",
+        "trackTension": 850
       }
     }
   }
@@ -145,12 +167,21 @@ Gateway translates extensions to JSON for UI consumption:
     "commandId": "cmd-abc123",
     "action": "extension",
     "namespace": "excavator",
+    "version": 2,
     "payload": {
       "type": "setBucketAngle",
       "angle": 30
     }
   }
 }
+```
+
+**UI filtering:** The `supportedExtensions` array enables the UI to show only relevant commands:
+```typescript
+// ActionPanel.tsx - filter extension commands by vehicle capabilities
+const availableCommands = extensionCommands.filter(cmd => 
+  selectedVehicle?.telemetry?.supportedExtensions?.includes(cmd.namespace)
+);
 ```
 
 ---
@@ -299,18 +330,25 @@ message EmergencyRetractCommand {
 package extensions
 
 // Codec handles encoding/decoding for a specific extension namespace.
+// Each codec must handle version negotiation for its extension's schema.
 type Codec interface {
     // Namespace returns the extension identifier (e.g., "excavator")
     Namespace() string
     
-    // DecodeTelemetry converts proto bytes to JSON-serializable map
-    DecodeTelemetry(data []byte) (map[string]any, error)
+    // SupportedVersions returns the schema versions this codec can decode.
+    // Used for diagnostics and version mismatch errors.
+    SupportedVersions() []uint32
     
-    // DecodeCommand converts command proto bytes to JSON-serializable map
-    DecodeCommand(action string, data []byte) (map[string]any, error)
+    // DecodeTelemetry converts versioned proto bytes to JSON-serializable map.
+    // Returns error if version is unsupported by this codec.
+    DecodeTelemetry(version uint32, data []byte) (map[string]any, error)
     
-    // EncodeCommand converts JSON command payload to proto bytes
-    EncodeCommand(action string, data map[string]any) ([]byte, error)
+    // DecodeCommand converts versioned command proto bytes to JSON-serializable map.
+    DecodeCommand(action string, version uint32, data []byte) (map[string]any, error)
+    
+    // EncodeCommand converts JSON command payload to proto bytes.
+    // Returns the version used for encoding (latest supported version).
+    EncodeCommand(action string, data map[string]any) (version uint32, payload []byte, err error)
     
     // Manifest returns the parsed manifest for this extension
     Manifest() *Manifest
@@ -359,30 +397,34 @@ func All() []Codec {
     return result
 }
 
-// DecodeExtensions decodes all extensions in a telemetry message.
-func DecodeExtensions(extensions map[string][]byte) (map[string]any, error) {
+// DecodeExtensions decodes all versioned extensions in a telemetry message.
+func DecodeExtensions(extensions map[string]*ExtensionData) (map[string]any, error) {
     result := make(map[string]any)
     
-    for namespace, data := range extensions {
+    for namespace, ext := range extensions {
         codec := Get(namespace)
         if codec == nil {
             // Unknown extension - pass through as base64 for debugging
             result[namespace] = map[string]any{
-                "_raw": data,
-                "_error": "unknown extension namespace",
+                "_raw":     ext.Payload,
+                "_version": ext.Version,
+                "_error":   "unknown extension namespace",
             }
             continue
         }
         
-        decoded, err := codec.DecodeTelemetry(data)
+        decoded, err := codec.DecodeTelemetry(ext.Version, ext.Payload)
         if err != nil {
             result[namespace] = map[string]any{
-                "_raw": data,
-                "_error": err.Error(),
+                "_raw":     ext.Payload,
+                "_version": ext.Version,
+                "_error":   err.Error(),
             }
             continue
         }
         
+        // Include version in decoded output for debugging/display
+        decoded["_version"] = ext.Version
         result[namespace] = decoded
     }
     
@@ -415,12 +457,25 @@ type Codec struct {
 
 func (c *Codec) Namespace() string { return "excavator" }
 
-func (c *Codec) DecodeTelemetry(data []byte) (map[string]any, error) {
-    var msg pb.ExcavatorTelemetry
-    if err := proto.Unmarshal(data, &msg); err != nil {
-        return nil, fmt.Errorf("unmarshal excavator telemetry: %w", err)
+func (c *Codec) SupportedVersions() []uint32 { return []uint32{1, 2} }
+
+func (c *Codec) DecodeTelemetry(version uint32, data []byte) (map[string]any, error) {
+    switch version {
+    case 1:
+        return c.decodeTelemetryV1(data)
+    case 2:
+        return c.decodeTelemetryV2(data)
+    default:
+        return nil, fmt.Errorf("unsupported excavator telemetry version %d (supported: %v)", 
+            version, c.SupportedVersions())
     }
-    
+}
+
+func (c *Codec) decodeTelemetryV1(data []byte) (map[string]any, error) {
+    var msg pb.ExcavatorTelemetryV1
+    if err := proto.Unmarshal(data, &msg); err != nil {
+        return nil, fmt.Errorf("unmarshal excavator telemetry v1: %w", err)
+    }
     return map[string]any{
         "bucketAngle":       msg.BucketAngleDeg,
         "hydraulicPressure": msg.HydraulicPressurePsi,
@@ -429,7 +484,23 @@ func (c *Codec) DecodeTelemetry(data []byte) (map[string]any, error) {
     }, nil
 }
 
-func (c *Codec) EncodeCommand(action string, data map[string]any) ([]byte, error) {
+func (c *Codec) decodeTelemetryV2(data []byte) (map[string]any, error) {
+    var msg pb.ExcavatorTelemetryV2  // V2 adds new fields
+    if err := proto.Unmarshal(data, &msg); err != nil {
+        return nil, fmt.Errorf("unmarshal excavator telemetry v2: %w", err)
+    }
+    return map[string]any{
+        "bucketAngle":       msg.BucketAngleDeg,
+        "hydraulicPressure": msg.HydraulicPressurePsi,
+        "armExtension":      msg.ArmExtensionM,
+        "mode":              msg.Mode.String(),
+        "trackTension":      msg.TrackTensionPsi,  // New in v2
+    }, nil
+}
+
+func (c *Codec) EncodeCommand(action string, data map[string]any) (uint32, []byte, error) {
+    // Always encode with latest version
+    const currentVersion uint32 = 2
     switch action {
     case "setBucketAngle":
         angle, ok := data["angle"].(float64)
@@ -577,9 +648,12 @@ interface VehicleInstance {
     speed: number;
     heading: number;
     // ... core fields
+    
+    // Per-vehicle extension capabilities
+    supportedExtensions: string[];  // e.g., ["excavator", "camera"]
   };
   
-  // Extension data by namespace
+  // Extension data by namespace (decoded from versioned payloads)
   extensions: Record<string, unknown>;
 }
 ```
@@ -593,10 +667,18 @@ function ActionPanel(): React.ReactElement {
   const { manifests, activeProject } = useProjectStore();
   const selectedVehicle = useSelectedVehicle();
   
-  // Get extension commands for the active project
-  const extensionCommands = activeProject 
-    ? manifests[activeProject]?.commands ?? []
-    : [];
+  // Get extension commands that the selected vehicle actually supports
+  const extensionCommands = useMemo(() => {
+    if (!activeProject || !selectedVehicle) return [];
+    
+    const projectCommands = manifests[activeProject]?.commands ?? [];
+    const vehicleCapabilities = selectedVehicle.telemetry?.supportedExtensions ?? [];
+    
+    // Filter to commands whose namespace the vehicle supports
+    return projectCommands.filter(cmd => 
+      vehicleCapabilities.includes(cmd.namespace ?? activeProject)
+    );
+  }, [activeProject, manifests, selectedVehicle]);
 
   return (
     <div>
@@ -608,7 +690,7 @@ function ActionPanel(): React.ReactElement {
       {/* Divider if we have extension commands */}
       {extensionCommands.length > 0 && <Divider />}
       
-      {/* Extension commands from manifest */}
+      {/* Extension commands filtered by vehicle capabilities */}
       {extensionCommands.map(cmd => (
         <ExtensionActionButton 
           key={cmd.action}
@@ -851,45 +933,79 @@ jobs:
 
 ---
 
-## Decoding Strategy Options
+## Extension Decoding
 
-### Option A: Gateway Translates (Recommended)
+**Gateway always decodes extensions to JSON.** The WebSocket carries clean, human-readable JSON — no binary blobs, no base64.
 
-Gateway has a registry of known extensions and translates proto bytes → JSON.
+| Benefit | Why It Matters |
+|---------|----------------|
+| UI receives ready-to-use JSON | No protobuf runtime in the browser, no bundle bloat |
+| Single point of debugging | WebSocket traffic is readable; errors logged in one place |
+| Consistent behavior | All clients see identical decoded data |
+| Type-safe decoding | Gateway codec catches malformed extension data with clear errors |
 
-| Pros | Cons |
-|------|------|
-| UI receives ready-to-use JSON | Gateway must be rebuilt for new extensions |
-| Type-safe decoding with good error messages | Tight coupling between gateway and extensions |
-| No proto dependency in UI | |
+### Development Workflow: Passthrough Mode
 
-### Option B: Passthrough (Simpler)
+Extension developers need to iterate without waiting for gateway releases. To support this, the gateway offers a passthrough mode for **development only**:
 
-Gateway passes extension bytes as base64, UI decodes using protobuf-es.
+```bash
+OPENC2_PASSTHROUGH_EXTENSIONS=true go run ./cmd/gateway
+```
 
-**JSON frame:**
+**Behavior:**
+
+- **Known extensions** (registered codecs): Decoded to JSON as normal
+- **Unknown extensions** (no codec): Passed through as base64 with metadata
+
 ```json
 {
   "extensions": {
-    "excavator": "CgQtDABA..."
+    "maritime": {
+      "_raw": "CgQtDABA...",
+      "_passthrough": true,
+      "_namespace": "maritime"
+    }
   }
 }
 ```
 
-**UI decoding:**
-```typescript
-import { ExcavatorTelemetry } from '@your-org/openc2-extensions/excavator';
+### Stock UI Handling
 
-const decoded = ExcavatorTelemetry.fromBinary(base64ToBytes(data));
+The stock UI renders passthrough data in a debug panel — no UI fork required:
+
+```typescript
+// ExtensionPanel.tsx
+function ExtensionPanel({ namespace, data }: Props) {
+  // Passthrough extensions: show debug view
+  if (data._passthrough) {
+    return (
+      <div className="extension-debug">
+        <h4>⚠️ {namespace} (unregistered)</h4>
+        <code>{data._raw}</code>
+        <small>Extension codec not integrated. Contact platform team.</small>
+      </div>
+    );
+  }
+  
+  // Registered extensions: render from manifest
+  const manifest = useProjectStore(s => s.manifests[namespace]);
+  return <DynamicPanel config={manifest} data={data} />;
+}
 ```
 
-| Pros | Cons |
-|------|------|
-| Gateway is fully decoupled | UI needs proto codegen |
-| Teams can ship without gateway release | Less debuggable (binary in JSON) |
-| | Bundle size increases with proto libs |
+**Team workflow:**
 
-**Recommendation**: Start with Option A. Move to Option B for performance-critical or rapidly-changing extensions.
+1. Maritime team defines `maritime.proto` — this is the **payload** schema for their extension bytes
+2. They emit `VehicleTelemetry` (**the envelope**) on multicast, populating `extensions["maritime"]` with serialized `MaritimeTelemetry`
+3. They run gateway with `OPENC2_PASSTHROUGH_EXTENSIONS=true`
+4. Stock UI shows their extension data in a debug panel (raw base64 + "unregistered" label)
+5. They decode locally via browser console or external tool to validate their proto
+6. Once stable, they submit codec + manifest PR to `openc2-extensions`
+7. After gateway release, their data renders through the normal manifest-driven panels
+
+**Key point:** All roads lead to `openc2.proto`. Extension protos define what goes *inside* the `extensions` bytes field — they're payloads nested in the OpenC2 envelope, not alternatives to it.
+
+**Important:** Passthrough is for development only. Production gateways run with passthrough disabled (the default). If you see `_passthrough: true` in production, the extension codec isn't integrated yet.
 
 ---
 
@@ -901,7 +1017,7 @@ const decoded = ExcavatorTelemetry.fromBinary(base64ToBytes(data));
 | Proto for extensions? | **Yes** — proto for wire, JSON for UI display | Best of both: type-safe wire, easy UI consumption |
 | How are manifests deployed? | **Gateway serves them** (`/manifests` endpoint) | Single source of truth, no version skew |
 | Multiple namespaces per vehicle? | **Yes** — a vehicle can have `excavator` + `camera` extensions | Composition over inheritance |
-| Unknown extensions? | **Pass through with `_error` field** | Graceful degradation, don't break on unknown |
+| Unknown extensions? | **Pass through with `_error` field** (or `_passthrough` in dev mode) | Graceful degradation, don't break on unknown |
 
 ---
 
@@ -912,7 +1028,7 @@ const decoded = ExcavatorTelemetry.fromBinary(base64ToBytes(data));
 3. **Graceful degradation** — UI ignores unknown extensions (future-proof)
 4. **Type safety where it matters** — core protocol is typed, extensions are schema-validated
 5. **Testability** — manifests can be validated in CI before deployment
-6. **Independent releases** — extension teams can ship without waiting for platform releases (with Option B)
+6. **Unblocked development** — passthrough mode lets teams iterate without waiting for gateway releases
 
 ---
 
@@ -936,6 +1052,551 @@ const decoded = ExcavatorTelemetry.fromBinary(base64ToBytes(data));
 
 - **Hot reload**: Watch manifest files for changes, push updates via WebSocket
 - **Extension marketplace**: Browse/enable extensions from UI
-- **Per-vehicle extensions**: Different vehicles in same fleet have different extensions
-- **Extension versioning**: Support multiple versions of same extension
 - **Buf schema registry**: Migrate to Buf.build for enterprise-grade schema management
+- **Plugin architecture**: Load extension codecs at runtime without gateway recompilation
+
+---
+
+## Open Design Gaps
+
+### Manifest Schema Validation
+
+> **STATUS: NOT YET IMPLEMENTED** — This is a known gap that should be addressed before production use with multiple teams.
+
+**Current state:** The example CI validates YAML syntax only:
+
+```yaml
+- name: Validate manifests
+  run: |
+    for manifest in */v*/manifest.yaml; do
+      yq eval '.' "$manifest" > /dev/null  # Just checks valid YAML
+    done
+```
+
+**The problem:** When a team submits a malformed manifest (wrong field types, missing required fields, invalid `display` values), nothing rejects it until runtime — possibly in production.
+
+**Recommended approach:**
+
+1. **Publish a JSON Schema** for `manifest.yaml` in the extensions repo:
+   - Define required fields: `namespace`, `version`, `displayName`
+   - Validate `telemetry.extensions[].type` against allowed values
+   - Validate `commands[].params[].type` and `range` structure
+   - Validate `ui.panels[].fields[].display` against known display types
+
+2. **Validate in CI** alongside proto linting:
+   ```yaml
+   - name: Validate manifest schema
+     run: |
+       npm install -g ajv-cli ajv-formats
+       for manifest in */v*/manifest.yaml; do
+         ajv validate -s manifest.schema.json -d "$manifest" --strict
+       done
+   ```
+
+3. **Gateway validation** at startup:
+   - Parse and validate all manifests against schema
+   - Log warnings for invalid manifests but don't crash
+   - `/manifests` endpoint only serves validated manifests
+
+4. **UI graceful degradation**:
+   - Ignore malformed manifest entries (log warning)
+   - Show "extension unavailable" placeholder instead of crashing
+
+**Priority:** HIGH — Without this, a single bad PR from any team can break the UI for all operators.
+
+### Namespace Collision Prevention
+
+> **STATUS: NOT YET IMPLEMENTED** — Low effort, should implement before onboarding third team.
+
+Two teams could independently choose the same namespace (e.g., `camera`). The first merged PR wins; the second breaks silently.
+
+**Recommended approach:**
+
+1. Create `namespaces.yaml` registry in extensions repo root:
+   ```yaml
+   # Authoritative namespace registry - add entries via PR
+   excavator: excavator-team
+   maritime: maritime-team
+   camera: perception-team
+   ```
+
+2. CI check that validates PRs don't introduce collisions:
+   ```yaml
+   - name: Check namespace registry
+     run: |
+       for codec in */codec.go; do
+         ns=$(grep 'Namespace()' "$codec" | grep -o '"[^"]*"' | tr -d '"')
+         if ! grep -q "^$ns:" namespaces.yaml; then
+           echo "ERROR: Namespace '$ns' not registered in namespaces.yaml"
+           exit 1
+         fi
+       done
+   ```
+
+This catches errors at PR time, not when an operator opens the UI and sees a broken panel.
+
+---
+
+## Protocol Evolution Roadmap
+
+> **Purpose**: First-class abstractions that prevent custom forks. These are universal needs across robotics projects that warrant inclusion in the core protocol rather than forcing teams to reinvent them as extensions.
+
+### Problem: Why Extensions Aren't Enough
+
+The extension system handles **project-specific** needs well. But some abstractions are **universal** — 90% of teams need them, and treating them as extensions means:
+
+1. Every team reinvents the same wheel
+2. Incompatible implementations prevent cross-project tooling
+3. UI must special-case "common extensions" anyway
+
+The following should be **core protocol features** with well-defined semantics.
+
+---
+
+### 1. Vehicle Capabilities (Priority: HIGH)
+
+**The Problem:**
+
+Currently, all vehicles implicitly accept all core commands (`goto`, `stop`, `return_home`, etc.). This fails for:
+
+| Vehicle Type | Issue |
+|--------------|-------|
+| Stationary sensor | Cannot `goto` or `stop` (not moving) |
+| Fixed-wing UAV | Cannot `stop` mid-flight (stall) |
+| Tethered ROV | Cannot `return_home` (would destroy tether) |
+| Observation-only | No commands at all (telemetry publisher only) |
+
+**Without capabilities, teams will:**
+- Fork the UI to hide buttons for specific vehicle types
+- Add custom validation that duplicates gateway logic
+- Build vehicle-type detection heuristics that break
+
+**Proto Addition:**
+
+```protobuf
+// Add to Heartbeat message
+message Heartbeat {
+  string vehicle_id = 1;
+  int64 timestamp_ms = 2;
+  VehicleStatus status = 3;
+  int64 uptime_ms = 4;
+  
+  // NEW: Capability advertisement
+  VehicleCapabilities capabilities = 5;
+}
+
+message VehicleCapabilities {
+  // Core commands this vehicle supports
+  // Values: "goto", "stop", "return_home", "set_mode", "set_speed"
+  repeated string supported_commands = 1;
+  
+  // Extension namespaces this vehicle supports
+  // Values: "excavator", "camera", etc.
+  repeated string supported_extensions = 2;
+  
+  // Whether vehicle accepts mission plans (see Mission Abstraction below)
+  bool supports_missions = 3;
+  
+  // Sensor payloads (see Sensor Registry below)
+  repeated SensorCapability sensors = 4;
+}
+```
+
+**UI Impact:**
+
+```typescript
+// ActionPanel dynamically shows/hides buttons
+function ActionPanel({ vehicle }: Props) {
+  const caps = vehicle.capabilities;
+  
+  return (
+    <>
+      {caps.supportedCommands.includes('stop') && <StopButton />}
+      {caps.supportedCommands.includes('goto') && <GotoButton />}
+      {caps.supportedCommands.includes('return_home') && <RTBButton />}
+      {/* Extension buttons filtered by caps.supportedExtensions */}
+    </>
+  );
+}
+```
+
+**Gateway Changes:**
+
+1. Parse `capabilities` from Heartbeat
+2. Store in registry alongside vehicle state
+3. Include in `welcome` snapshot fleet data
+4. Reject commands not in vehicle's `supported_commands` (fail-fast, don't forward)
+
+---
+
+### 2. Sensor Registry (Priority: MEDIUM)
+
+**The Problem:**
+
+Cameras, LiDAR, sonar, and thermal sensors appear across nearly every robotics project. Treating them as extensions means:
+
+- Every team defines their own camera proto
+- Stream URL formats vary wildly
+- No standard way to display sensor feeds in UI
+- Mounting transforms (where sensor points) are either missing or incompatible
+
+**Proto Addition:**
+
+```protobuf
+message SensorCapability {
+  string sensor_id = 1;              // "front_camera", "lidar_1"
+  SensorType type = 2;
+  string stream_url = 3;             // rtsp://, http://, ws://
+  SensorMount mount = 4;             // Where/how sensor is mounted
+  map<string, string> metadata = 10; // Type-specific (resolution, FOV, etc.)
+}
+
+enum SensorType {
+  SENSOR_UNKNOWN = 0;
+  SENSOR_CAMERA_RGB = 1;
+  SENSOR_CAMERA_THERMAL = 2;
+  SENSOR_CAMERA_DEPTH = 3;
+  SENSOR_LIDAR_2D = 4;
+  SENSOR_LIDAR_3D = 5;
+  SENSOR_SONAR = 6;
+  SENSOR_RADAR = 7;
+  SENSOR_IMU = 8;
+  SENSOR_GPS = 9;
+}
+
+message SensorMount {
+  // Position offset from vehicle origin (meters, body frame)
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  
+  // Orientation (Euler angles in degrees, body frame)
+  // Roll/pitch/yaw convention: X-forward, Y-left, Z-up
+  float roll = 4;
+  float pitch = 5;
+  float yaw = 6;
+}
+```
+
+**UI Capability:**
+
+- Render camera feeds in a standard video panel
+- Visualize sensor FOV cones on map (using mount orientation)
+- Show sensor health indicators without extension-specific code
+
+**Why Not Extension?**
+
+Sensors are **cross-cutting** — a vehicle might have excavator extensions AND cameras. Making sensors an extension would require every domain extension to depend on a "camera extension," creating coupling that defeats the purpose.
+
+---
+
+### 3. Mission Abstraction (Priority: MEDIUM-LOW)
+
+**The Problem:**
+
+Core commands are point-to-point: go here, stop, return. Real operations need:
+
+- Waypoint sequences ("visit these 5 points")
+- Conditional tasks ("survey area, then return")
+- Progress tracking ("waypoint 3/5 complete")
+- Pause/resume/abort semantics
+
+**Without a standard mission format:**
+
+- Teams build incompatible mission planners
+- No shared tooling for mission visualization
+- Progress tracking requires extension-specific UI
+
+**Proto Addition:**
+
+```protobuf
+message Command {
+  // ... existing fields ...
+  
+  oneof payload {
+    GotoCommand goto = 10;
+    StopCommand stop = 11;
+    ReturnHomeCommand return_home = 12;
+    SetModeCommand set_mode = 13;
+    SetSpeedCommand set_speed = 14;
+    
+    // NEW: High-level mission control
+    MissionCommand mission = 20;
+  }
+}
+
+message MissionCommand {
+  string mission_id = 1;
+  MissionAction action = 2;
+  MissionDefinition definition = 3;  // Only for START action
+}
+
+enum MissionAction {
+  MISSION_START = 0;
+  MISSION_PAUSE = 1;
+  MISSION_RESUME = 2;
+  MISSION_ABORT = 3;
+}
+
+message MissionDefinition {
+  repeated Waypoint waypoints = 1;
+  string mission_type = 2;           // "patrol", "survey", "delivery", or extension namespace
+  map<string, bytes> parameters = 10; // Extension point for mission-type-specific params
+}
+
+message Waypoint {
+  Location location = 1;
+  float speed_ms = 2;                // Target speed for this leg
+  float loiter_time_s = 3;           // Time to hold at waypoint (0 = fly-through)
+  string action = 4;                 // "none", "photograph", or extension:namespace/action
+  map<string, bytes> action_params = 5;
+}
+```
+
+**Telemetry Addition:**
+
+```protobuf
+message VehicleTelemetry {
+  // ... existing fields ...
+  
+  // NEW: Mission progress (optional, only when executing mission)
+  optional MissionProgress mission_progress = 16;
+}
+
+message MissionProgress {
+  string mission_id = 1;
+  MissionState state = 2;
+  uint32 current_waypoint = 3;       // 0-indexed
+  uint32 total_waypoints = 4;
+  float completion_pct = 5;          // 0.0-100.0
+  string current_action = 6;         // What vehicle is doing right now
+}
+
+enum MissionState {
+  MISSION_PENDING = 0;
+  MISSION_ACTIVE = 1;
+  MISSION_PAUSED = 2;
+  MISSION_COMPLETED = 3;
+  MISSION_ABORTED = 4;
+  MISSION_FAILED = 5;
+}
+```
+
+**Design Philosophy:**
+
+The core provides the **envelope** (waypoints, lifecycle, progress). Domain-specific behavior ("what does a survey mission do?") lives in the `parameters` map and is decoded by extensions. This follows the same pattern as telemetry extensions.
+
+---
+
+### 4. Coordinate Frames (Priority: LOW)
+
+**The Problem:**
+
+Robotics systems use multiple coordinate frames:
+
+| Frame | Use Case |
+|-------|----------|
+| WGS84 (lat/lng) | GPS, mapping, UI display |
+| UTM | Local planning, obstacle avoidance |
+| Body-fixed | Sensor mounts, manipulator control |
+| Map-relative | Indoor/GPS-denied navigation |
+
+Currently, `Location` is implicitly WGS84. This works for outdoor vehicles but breaks for:
+
+- Indoor robots (no GPS)
+- Underwater vehicles (acoustic positioning)
+- Warehouse robots (local grid coordinates)
+
+**Proto Addition:**
+
+```protobuf
+message Location {
+  double latitude = 1;   // WGS84 or local Y
+  double longitude = 2;  // WGS84 or local X  
+  float altitude_msl_m = 3;
+  
+  // NEW: Frame identifier (default = WGS84)
+  string frame_id = 4;   // "wgs84", "utm:10N", "local", or custom
+}
+```
+
+**Why Low Priority:**
+
+Most OpenC2 deployments are outdoor with GPS. The frame issue primarily affects indoor/industrial robotics, which often have existing local tooling. Implement when a concrete use case demands it.
+
+---
+
+### Implementation Priority
+
+| Feature | Priority | Effort | Risk if Deferred |
+|---------|----------|--------|------------------|
+| Vehicle Capabilities | **HIGH** | 3-4 days | **High** — teams will fork UI to hide buttons |
+| Adapter Layer | **HIGH** | 1 week | **High** — MAVLink/ROS teams can't adopt |
+| Sensor Registry | MEDIUM | 2-3 days | Medium — common but self-contained |
+| Mission Abstraction | MEDIUM | 1 week | Medium — teams build incompatible planners |
+| Coordinate Frames | LOW | 1 day | Low — outdoor-only MVP is acceptable |
+
+**Recommendation:** Ship capabilities and adapter layer before expanding team adoption. These are the two features most likely to cause forks.
+
+---
+
+## Integration Contract
+
+> **This is the most important architectural decision in the project.**
+
+OpenC2 does not maintain bridges, adapters, or translators for external protocols. Teams who want to integrate with OpenC2 must emit OpenC2 proto on the multicast groups.
+
+### The Contract
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           YOUR SYSTEM (Team-Owned)                          │
+│                                                                             │
+│  ┌─────────────────────────────────────┐      ┌─────────────────────────┐   │
+│  │            Your Robot               │      │   Your Ground Station   │   │
+│  │                                     │      │                         │   │
+│  │  ┌─────────────┐  ┌──────────────┐  │      │  ┌─────────────────┐    │   │
+│  │  │ Your State  │  │ Radio Node   │  │ radio│  │  Radio Receiver │    │   │
+│  │  │ (ROS2/DDS/  │─▶│ + OpenC2     │──┼──────┼─▶│  (passthrough)  │    │   │
+│  │  │  custom)    │  │ Translation  │  │ link │  │                 │    │   │
+│  │  └─────────────┘  │ (~50 lines)  │  │      │  └────────┬────────┘    │   │
+│  │                   └──────────────┘  │      │           │             │   │
+│  └─────────────────────────────────────┘      │           ▼             │   │
+│                                               │  UDP Multicast          │   │
+│                                               │  239.255.0.1:14550      │   │
+│                                               └───────────┬─────────────┘   │
+└───────────────────────────────────────────────────────────┼─────────────────┘
+                                                            │
+┌───────────────────────────────────────────────────────────┼─────────────────┐
+│                        OPENC2 (We Own)                    │                 │
+│                                                           ▼                 │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                         OpenC2 Gateway                               │   │
+│  │                    (speaks OpenC2 proto ONLY)                        │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+│                                      │                                      │
+│                                      ▼                                      │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                           OpenC2 UI                                  │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** Translation happens **on the robot**, in the radio node that transmits. The ground station receiver is a passthrough — it just forwards OpenC2 proto to the local multicast group. This keeps the ground station generic across all robot types.
+
+### What OpenC2 Provides
+
+| Asset | Description |
+|-------|-------------|
+| `openc2.proto` | The protocol definition — your translation target |
+| Reference implementation | `cmd/testsender/` shows exactly how to emit telemetry |
+| Field documentation | Every field explained with units and semantics |
+| Validation | Gateway validates incoming protos, gives clear errors |
+| This document | Architecture guidance for teams |
+
+### What Teams Own
+
+| Responsibility | Why |
+|----------------|-----|
+| Translation code | You know your state model — map it to `VehicleTelemetry` on the robot |
+| Correctness | You verify your translation emits valid protos |
+| Radio link | Your robot transmits OpenC2 proto; your ground station forwards it |
+| Latency | Translation runs on the robot — you control timing and bandwidth |
+
+### Why This Matters
+
+**The alternative was bridges.** We would write `openc2-project1-bridge`, `openc2-project2-bridge` etc. This fails:
+
+| Problem | Impact |
+|---------|--------|
+| N teams = N adapters | Maintenance scales linearly with adoption |
+| Blame games | "Your bridge broke our data" vs "your data broke our bridge" |
+| Ownership ambiguity | Who fixes bugs? Who tests? Who upgrades? |
+
+**The precedent is clear.** This is how integration protocols scale:
+
+- **MAVLink**: The ecosystem defined the protocol. Vehicles that want ground station compatibility emit MAVLink. No adapters per flight controller.
+- **ROS2**: Standard message types (`geometry_msgs/Pose`, `nav_msgs/Odometry`) are ecosystem-defined. Robots conform to them to use ecosystem tooling.
+- **NMEA (GPS)**: Devices emit NMEA sentences. Mapping software doesn't write parsers for each GPS chip's internal format.
+- **OpenTelemetry**: Services emit OTLP. Observability platforms don't adapt to each service's internal metrics format.
+
+### The Pitch to Teams
+
+> "Add ~50 lines to your robot's radio node. Map your `Odometry` to `VehicleTelemetry`, serialize it, and transmit. Your ground station receiver forwards to multicast. You show up in our UI."
+
+**Example (Go):**
+
+```go
+// On the robot: translate + serialize in your radio node
+func translateToOpenC2(odom *YourOdometry) *openc2.VehicleTelemetry {
+    return &openc2.VehicleTelemetry{
+        VehicleId:   "your-vehicle-id",
+        TimestampMs: time.Now().UnixMilli(),
+        Location: &openc2.Location{
+            Latitude:   odom.Pose.Position.Latitude,
+            Longitude:  odom.Pose.Position.Longitude,
+            AltitudeMslM: float32(odom.Pose.Position.Altitude),
+        },
+        HeadingDeg:   float32(odom.Pose.Orientation.Yaw * 180 / math.Pi),
+        SpeedMs:      float32(math.Sqrt(odom.Twist.Linear.X*odom.Twist.Linear.X + odom.Twist.Linear.Y*odom.Twist.Linear.Y)),
+        Environment:  openc2.Environment_GROUND,
+        Status:       openc2.VehicleStatus_ACTIVE,
+    }
+}
+```
+
+**Example (C++):**
+
+```cpp
+// On the robot: translate + serialize in your radio node
+#include "openc2.pb.h"
+#include <cmath>
+
+openc2::VehicleTelemetry translateToOpenC2(const YourOdometry& odom) {
+    openc2::VehicleTelemetry telem;
+    telem.set_vehicle_id("your-vehicle-id");
+    telem.set_timestamp_ms(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count());
+    
+    auto* loc = telem.mutable_location();
+    loc->set_latitude(odom.pose.position.latitude);
+    loc->set_longitude(odom.pose.position.longitude);
+    loc->set_altitude_msl_m(odom.pose.position.altitude);
+    
+    telem.set_heading_deg(odom.pose.orientation.yaw * 180.0 / M_PI);
+    telem.set_speed_ms(std::sqrt(
+        odom.twist.linear.x * odom.twist.linear.x + 
+        odom.twist.linear.y * odom.twist.linear.y));
+    telem.set_environment(openc2::ENVIRONMENT_GROUND);
+    telem.set_status(openc2::VEHICLE_STATUS_ACTIVE);
+    
+    return telem;
+}
+```
+
+### Integration Checklist
+
+For teams integrating with OpenC2:
+
+- [ ] Clone the proto: `api/proto/openc2.proto`
+- [ ] Generate code for your language (`protoc`, `buf generate`, etc.)
+- [ ] Add translation function to your robot's radio node (~50 lines)
+- [ ] Serialize `VehicleTelemetry` and transmit over your radio link
+- [ ] Configure ground station receiver to forward to telemetry multicast group (default: `239.255.0.1:14550`)
+- [ ] (Optional) Subscribe to command multicast group (default: `239.255.0.2:14551`) and relay commands to robot
+- [ ] Verify with `cmd/testclient/` — you should see your vehicle
+
+### What If Teams Push Back?
+
+| Objection | Response |
+|-----------|----------|
+| "Can't you just write a bridge for us?" | "You own your robot's radio node. You know your state model. The translation is 50 lines — you'll write it faster than explaining your format to us." |
+| "We don't want to maintain proto code" | "The proto is stable. Once your translation works, it works. We version the proto carefully — no breaking changes." |
+| "Our robot's radio node is frozen/legacy" | "Add a small sidecar process on the robot that subscribes to your existing output and emits OpenC2 proto. Still your code, your responsibility." |
+
+### The Result
+
+- **Gateway stays pure**: Only speaks OpenC2 proto. No protocol zoo.
+- **Clear ownership**: Teams own their translation. We own the platform.
+- **No maintenance scaling**: Adding team N+1 requires zero work from us.
+- **Predictable debugging**: If data looks wrong, it's the translation. If gateway breaks, it's us.

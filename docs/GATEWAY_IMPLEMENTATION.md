@@ -843,3 +843,332 @@ go get golang.org/x/net
 | **Phase 4** | Observability |
 
 **MVP cutoff:** End of Phase 2 (UI sees real vehicles).
+
+---
+
+## Phase 5: Extensibility
+
+**Goal**: Support org-specific extensions and alternative middleware without forking the gateway.
+
+> See [EXTENSIBILITY.md](EXTENSIBILITY.md#protocol-evolution-roadmap) for the full rationale.
+
+### 5.1 The Problem
+
+Different organizations will:
+1. Put custom data in the protobuf `extensions` map (IMU, LIDAR, custom sensors)
+2. Use different middleware entirely (ROS2 DDS, Zenoh)
+
+We solve these separately:
+- **Extension codecs** — decode org-specific bytes in `extensions` map
+- **Middleware adapters** — bridge ROS2 or Zenoh to the gateway
+
+### 5.2 Extension Codecs
+
+Organizations using native UDP multicast can add custom telemetry via `extensions`:
+
+```protobuf
+// In VehicleTelemetry
+map<string, bytes> extensions = 20;  // Org-specific data
+```
+
+The gateway decodes these with registered codecs:
+
+```go
+// internal/protocol/extensions.go
+
+// ExtensionCodec decodes custom bytes from the extensions map.
+type ExtensionCodec interface {
+    Decode(key string, data []byte) (any, error)
+}
+
+// Registry of extension codecs
+var codecs = map[string]ExtensionCodec{}
+
+func RegisterCodec(key string, codec ExtensionCodec) {
+    codecs[key] = codec
+}
+
+// DecodeExtensions converts extensions map to JSON-friendly format.
+func DecodeExtensions(ext map[string][]byte) map[string]any {
+    result := make(map[string]any)
+    for key, data := range ext {
+        if codec, ok := codecs[key]; ok {
+            if val, err := codec.Decode(key, data); err == nil {
+                result[key] = val
+            }
+        } else {
+            // Unknown extension — pass through as base64
+            result[key] = base64.StdEncoding.EncodeToString(data)
+        }
+    }
+    return result
+}
+```
+
+**Example: Custom IMU extension**
+
+```go
+// internal/extensions/imu/codec.go
+
+func init() {
+    protocol.RegisterCodec("imu", &IMUCodec{})
+}
+
+type IMUCodec struct{}
+
+func (c *IMUCodec) Decode(key string, data []byte) (any, error) {
+    var imu IMUData
+    if err := proto.Unmarshal(data, &imu); err != nil {
+        return nil, err
+    }
+    return map[string]any{
+        "accel": []float32{imu.AccelX, imu.AccelY, imu.AccelZ},
+        "gyro":  []float32{imu.GyroX, imu.GyroY, imu.GyroZ},
+    }, nil
+}
+```
+
+Vehicles put custom data in `extensions["imu"]`, gateway decodes it and forwards to UI. No forking required.
+
+### 5.3 Middleware Adapters
+
+For organizations not using UDP multicast, we need adapters for their middleware.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ADAPTER LAYER                                  │
+│  ┌──────────────────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  OpenC2 Native           │  │   ROS2      │  │   Zenoh     │             │
+│  │  UDP multicast + codecs  │  │   Adapter   │  │   Adapter   │             │
+│  │  239.255.0.1:14550       │  │   (DDS)     │  │             │             │
+│  └────────────┬─────────────┘  └──────┬──────┘  └──────┬──────┘             │
+│               │                       │                │                    │
+│               └───────────────────────┼────────────────┘                    │
+│                                       ▼                                     │
+│                               vehicleChan (shared)                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                        │
+                                        ▼
+                                  GATEWAY CORE
+```
+
+**Adapter Interface:**
+
+```go
+// internal/adapters/adapter.go
+
+package adapters
+
+import (
+    "context"
+    
+    "github.com/EthanMBoos/openc2-gateway/api/proto"
+)
+
+// Adapter bridges non-native middleware to the gateway.
+type Adapter interface {
+    // Start connects and begins receiving. Sends to vehicleChan.
+    Start(ctx context.Context, vehicleChan chan<- *proto.VehicleMessage) error
+    
+    // Stop disconnects and cleans up.
+    Stop() error
+    
+    // SendCommand sends a command to the vehicle.
+    SendCommand(cmd *proto.Command) error
+}
+```
+
+### 5.4 ROS2 Adapter
+
+For organizations using ROS2/DDS:
+
+```go
+// internal/adapters/ros2/adapter.go
+
+type Adapter struct {
+    node *rclgo.Node
+    sub  *rclgo.Subscription
+    pub  *rclgo.Publisher
+    cfg  Config
+}
+
+type Config struct {
+    Namespace      string // "/openc2"
+    TelemetryTopic string // "vehicle_telemetry"
+    CommandTopic   string // "vehicle_commands"
+    QoSProfile     string // "sensor_data"
+}
+
+func (a *Adapter) Start(ctx context.Context, ch chan<- *proto.VehicleMessage) error {
+    a.node = rclgo.NewNode("openc2_bridge", rclgo.WithNamespace(a.cfg.Namespace))
+    
+    // Subscribe to vehicle telemetry topic
+    a.sub = a.node.Subscribe(a.cfg.TelemetryTopic, func(msg *VehicleTelemetry) {
+        ch <- translateToProto(msg)
+    })
+    
+    // Publisher for commands
+    a.pub = a.node.CreatePublisher(a.cfg.CommandTopic)
+    
+    go a.node.Spin(ctx)
+    return nil
+}
+
+func (a *Adapter) SendCommand(cmd *proto.Command) error {
+    rosMsg := translateFromProto(cmd)
+    return a.pub.Publish(rosMsg)
+}
+
+func (a *Adapter) Stop() error {
+    return a.node.Close()
+}
+```
+
+~50 lines. rclgo handles DDS discovery and QoS.
+
+### 5.5 Zenoh Adapter
+
+Zenoh is a separate middleware with different semantics (key expressions, liveliness):
+
+```go
+// internal/adapters/zenoh/adapter.go
+
+type Adapter struct {
+    session zenoh.Session
+    cfg     Config
+}
+
+type Config struct {
+    Connect       string // "tcp/192.168.1.100:7447"
+    Mode          string // "peer" or "client"
+    TelemetryKey  string // "vehicles/*/telemetry" — wildcard subscribe
+    CommandKey    string // "vehicles/{vid}/commands"
+    LivelinessKey string // "vehicles/*/alive" — presence detection
+}
+
+func (a *Adapter) Start(ctx context.Context, ch chan<- *proto.VehicleMessage) error {
+    cfg := zenoh.NewConfig()
+    if a.cfg.Connect != "" {
+        cfg.Connect(a.cfg.Connect)
+    }
+    
+    session, err := zenoh.Open(cfg)
+    if err != nil {
+        return err
+    }
+    a.session = session
+    
+    // Subscribe with wildcard key expression
+    session.DeclareSubscriber(a.cfg.TelemetryKey, func(sample zenoh.Sample) {
+        vid := extractVehicleID(sample.KeyExpr())  // "vehicles/ugv-01/telemetry" → "ugv-01"
+        msg := decodePayload(sample.Payload(), vid)
+        ch <- msg
+    })
+    
+    // Liveliness for automatic online/offline detection
+    if a.cfg.LivelinessKey != "" {
+        session.DeclareLivelinessSubscriber(a.cfg.LivelinessKey, func(token, alive) {
+            // Emit status change heartbeat
+        })
+    }
+    
+    <-ctx.Done()
+    return nil
+}
+
+func (a *Adapter) SendCommand(cmd *proto.Command) error {
+    vid := strings.TrimPrefix(cmd.VehicleId, "zenoh-")
+    key := strings.Replace(a.cfg.CommandKey, "{vid}", vid, 1)
+    payload, _ := proto.Marshal(cmd)
+    return a.session.Put(key, payload)
+}
+
+func (a *Adapter) Stop() error {
+    return a.session.Close()
+}
+```
+
+~80 lines. Uses Zenoh-specific features (wildcards, liveliness).
+
+### 5.6 Gateway Integration
+
+```go
+// cmd/gateway/main.go
+
+func main() {
+    ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+    defer cancel()
+    
+    cfg := config.Load()
+    vehicleChan := make(chan *proto.VehicleMessage, 1000)
+    
+    // Native OpenC2 multicast (always on)
+    native := telemetry.NewMulticastListener(cfg.MulticastGroup, cfg.MulticastPort)
+    go native.Run(ctx, vehicleChan)
+    
+    // Optional middleware adapter
+    var adapter adapters.Adapter
+    switch cfg.AdapterType {
+    case "ros2":
+        adapter = ros2.New(cfg.ROS2Config)
+    case "zenoh":
+        adapter = zenoh.New(cfg.ZenohConfig)
+    }
+    
+    if adapter != nil {
+        go adapter.Start(ctx, vehicleChan)
+        defer adapter.Stop()
+    }
+    
+    // Command routing by vehicle ID prefix
+    router := command.NewRouter(func(cmd *proto.Command) error {
+        switch {
+        case strings.HasPrefix(cmd.VehicleId, "ros-"):
+            return adapter.SendCommand(cmd)
+        case strings.HasPrefix(cmd.VehicleId, "zenoh-"):
+            return adapter.SendCommand(cmd)
+        default:
+            return native.SendCommand(cmd)
+        }
+    })
+    
+    // ... rest of gateway startup ...
+}
+```
+
+### 5.7 Configuration
+
+```yaml
+# Adapter type: "ros2", "zenoh", or "" for native only
+adapter_type: ""
+
+# ROS2 options (when adapter_type: "ros2")
+ros2_namespace: "/openc2"
+ros2_telemetry_topic: "vehicle_telemetry"
+ros2_command_topic: "vehicle_commands"
+ros2_qos_profile: "sensor_data"
+
+# Zenoh options (when adapter_type: "zenoh")
+zenoh_connect: "tcp/192.168.1.100:7447"
+zenoh_mode: "client"
+zenoh_telemetry_key: "vehicles/*/telemetry"
+zenoh_command_key: "vehicles/{vid}/commands"
+zenoh_liveliness_key: "vehicles/*/alive"
+```
+
+### 5.8 Implementation Checklist
+
+- [ ] Create `internal/protocol/extensions.go` — codec registry
+- [ ] Create `internal/adapters/adapter.go` — 3-method interface
+- [ ] Add ROS2 adapter when needed
+- [ ] Add Zenoh adapter when needed
+- [ ] Add command routing switch in `cmd/gateway/main.go`
+
+### 5.9 Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| **Extension codecs** | Decode `extensions` map at gateway | Org-specific data without forking |
+| **Separate adapters** | ROS2 and Zenoh are distinct | Different middleware, different semantics |
+| **Vehicle ID prefix** | `ros-`, `zenoh-` | Stateless command routing |
+| **Native always on** | UDP multicast runs regardless | Primary path, adapters are optional |

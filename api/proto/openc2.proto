@@ -82,6 +82,33 @@ message VehicleTelemetry {
   
   // Battery percentage (0-100, absence means unknown)
   optional uint32 battery_pct = 10;
+  
+  // ── Extension Support ──
+  // See docs/EXTENSIBILITY.md for full extension architecture.
+  
+  // List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+  // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+  // Vehicles SHOULD populate this on every telemetry frame.
+  repeated string supported_extensions = 19;
+  
+  // Extension data by namespace. Each extension is versioned independently.
+  // Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+  // Gateway decodes these via registered codecs and translates to JSON for UI.
+  // Unknown extensions are passed through with error metadata (graceful degradation).
+  map<string, ExtensionData> extensions = 20;
+}
+
+// ExtensionData wraps extension payloads with version metadata.
+// This allows schema evolution per-extension without breaking the gateway.
+message ExtensionData {
+  // Schema version for this extension's payload format.
+  // Codecs use this to select the correct decoder.
+  // Start at 1; increment on breaking changes to payload schema.
+  uint32 version = 1;
+  
+  // Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+  // Opaque to gateway core; decoded by namespace-specific codec.
+  bytes payload = 2;
 }
 
 // Geographic location in WGS84 coordinates
@@ -168,7 +195,26 @@ message Command {
     ReturnHomeCommand return_home = 12;
     SetModeCommand set_mode = 13;
     SetSpeedCommand set_speed = 14;
+    ExtensionCommand extension = 20; // Extension-defined commands
   }
+}
+
+// ExtensionCommand routes custom commands to extension-specific handlers.
+// The gateway encodes this from JSON and broadcasts to vehicles.
+// Vehicles decode based on namespace and action.
+message ExtensionCommand {
+  // Extension namespace (e.g., "excavator") - must match a registered codec
+  string namespace = 1;
+  
+  // Action within the extension (e.g., "setBucketAngle")
+  string action = 2;
+  
+  // Schema version for this command's payload format
+  // Allows command schemas to evolve independently of telemetry schemas
+  uint32 version = 3;
+  
+  // Serialized extension-specific command proto (e.g., SetBucketAngleCommand)
+  bytes payload = 4;
 }
 
 // Navigate to a destination

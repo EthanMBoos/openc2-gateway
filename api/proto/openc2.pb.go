@@ -447,7 +447,16 @@ type VehicleTelemetry struct {
 	// Signal strength (0-5 bars, absence means unknown)
 	SignalStrength *uint32 `protobuf:"varint,9,opt,name=signal_strength,json=signalStrength,proto3,oneof" json:"signal_strength,omitempty"`
 	// Battery percentage (0-100, absence means unknown)
-	BatteryPct    *uint32 `protobuf:"varint,10,opt,name=battery_pct,json=batteryPct,proto3,oneof" json:"battery_pct,omitempty"`
+	BatteryPct *uint32 `protobuf:"varint,10,opt,name=battery_pct,json=batteryPct,proto3,oneof" json:"battery_pct,omitempty"`
+	// List of extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+	// Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+	// Vehicles SHOULD populate this on every telemetry frame.
+	SupportedExtensions []string `protobuf:"bytes,19,rep,name=supported_extensions,json=supportedExtensions,proto3" json:"supported_extensions,omitempty"`
+	// Extension data by namespace. Each extension is versioned independently.
+	// Key = namespace (e.g., "excavator"), Value = versioned extension payload.
+	// Gateway decodes these via registered codecs and translates to JSON for UI.
+	// Unknown extensions are passed through with error metadata (graceful degradation).
+	Extensions    map[string]*ExtensionData `protobuf:"bytes,20,rep,name=extensions,proto3" json:"extensions,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -552,6 +561,79 @@ func (x *VehicleTelemetry) GetBatteryPct() uint32 {
 	return 0
 }
 
+func (x *VehicleTelemetry) GetSupportedExtensions() []string {
+	if x != nil {
+		return x.SupportedExtensions
+	}
+	return nil
+}
+
+func (x *VehicleTelemetry) GetExtensions() map[string]*ExtensionData {
+	if x != nil {
+		return x.Extensions
+	}
+	return nil
+}
+
+// ExtensionData wraps extension payloads with version metadata.
+// This allows schema evolution per-extension without breaking the gateway.
+type ExtensionData struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Schema version for this extension's payload format.
+	// Codecs use this to select the correct decoder.
+	// Start at 1; increment on breaking changes to payload schema.
+	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// Serialized extension-specific proto (e.g., ExcavatorTelemetry).
+	// Opaque to gateway core; decoded by namespace-specific codec.
+	Payload       []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExtensionData) Reset() {
+	*x = ExtensionData{}
+	mi := &file_api_proto_openc2_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtensionData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtensionData) ProtoMessage() {}
+
+func (x *ExtensionData) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_openc2_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExtensionData.ProtoReflect.Descriptor instead.
+func (*ExtensionData) Descriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ExtensionData) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ExtensionData) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
 // Geographic location in WGS84 coordinates
 type Location struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -567,7 +649,7 @@ type Location struct {
 
 func (x *Location) Reset() {
 	*x = Location{}
-	mi := &file_api_proto_openc2_proto_msgTypes[2]
+	mi := &file_api_proto_openc2_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -579,7 +661,7 @@ func (x *Location) String() string {
 func (*Location) ProtoMessage() {}
 
 func (x *Location) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[2]
+	mi := &file_api_proto_openc2_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -592,7 +674,7 @@ func (x *Location) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Location.ProtoReflect.Descriptor instead.
 func (*Location) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Location) GetLatitude() float64 {
@@ -630,7 +712,7 @@ type Heartbeat struct {
 
 func (x *Heartbeat) Reset() {
 	*x = Heartbeat{}
-	mi := &file_api_proto_openc2_proto_msgTypes[3]
+	mi := &file_api_proto_openc2_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +724,7 @@ func (x *Heartbeat) String() string {
 func (*Heartbeat) ProtoMessage() {}
 
 func (x *Heartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[3]
+	mi := &file_api_proto_openc2_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -655,7 +737,7 @@ func (x *Heartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Heartbeat.ProtoReflect.Descriptor instead.
 func (*Heartbeat) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Heartbeat) GetVehicleId() string {
@@ -701,7 +783,7 @@ type Alert struct {
 
 func (x *Alert) Reset() {
 	*x = Alert{}
-	mi := &file_api_proto_openc2_proto_msgTypes[4]
+	mi := &file_api_proto_openc2_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -713,7 +795,7 @@ func (x *Alert) String() string {
 func (*Alert) ProtoMessage() {}
 
 func (x *Alert) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[4]
+	mi := &file_api_proto_openc2_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -726,7 +808,7 @@ func (x *Alert) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Alert.ProtoReflect.Descriptor instead.
 func (*Alert) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Alert) GetVehicleId() string {
@@ -789,6 +871,7 @@ type Command struct {
 	//	*Command_ReturnHome
 	//	*Command_SetMode
 	//	*Command_SetSpeed
+	//	*Command_Extension
 	Payload       isCommand_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -796,7 +879,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	mi := &file_api_proto_openc2_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -808,7 +891,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	mi := &file_api_proto_openc2_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -821,7 +904,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Command) GetCommandId() string {
@@ -897,6 +980,15 @@ func (x *Command) GetSetSpeed() *SetSpeedCommand {
 	return nil
 }
 
+func (x *Command) GetExtension() *ExtensionCommand {
+	if x != nil {
+		if x, ok := x.Payload.(*Command_Extension); ok {
+			return x.Extension
+		}
+	}
+	return nil
+}
+
 type isCommand_Payload interface {
 	isCommand_Payload()
 }
@@ -921,6 +1013,10 @@ type Command_SetSpeed struct {
 	SetSpeed *SetSpeedCommand `protobuf:"bytes,14,opt,name=set_speed,json=setSpeed,proto3,oneof"`
 }
 
+type Command_Extension struct {
+	Extension *ExtensionCommand `protobuf:"bytes,20,opt,name=extension,proto3,oneof"` // Extension-defined commands
+}
+
 func (*Command_Goto) isCommand_Payload() {}
 
 func (*Command_Stop) isCommand_Payload() {}
@@ -930,6 +1026,84 @@ func (*Command_ReturnHome) isCommand_Payload() {}
 func (*Command_SetMode) isCommand_Payload() {}
 
 func (*Command_SetSpeed) isCommand_Payload() {}
+
+func (*Command_Extension) isCommand_Payload() {}
+
+// ExtensionCommand routes custom commands to extension-specific handlers.
+// The gateway encodes this from JSON and broadcasts to vehicles.
+// Vehicles decode based on namespace and action.
+type ExtensionCommand struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Extension namespace (e.g., "excavator") - must match a registered codec
+	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
+	// Action within the extension (e.g., "setBucketAngle")
+	Action string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
+	// Schema version for this command's payload format
+	// Allows command schemas to evolve independently of telemetry schemas
+	Version uint32 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	// Serialized extension-specific command proto (e.g., SetBucketAngleCommand)
+	Payload       []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExtensionCommand) Reset() {
+	*x = ExtensionCommand{}
+	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtensionCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtensionCommand) ProtoMessage() {}
+
+func (x *ExtensionCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExtensionCommand.ProtoReflect.Descriptor instead.
+func (*ExtensionCommand) Descriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ExtensionCommand) GetNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
+}
+
+func (x *ExtensionCommand) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+func (x *ExtensionCommand) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *ExtensionCommand) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
 
 // Navigate to a destination
 type GotoCommand struct {
@@ -942,7 +1116,7 @@ type GotoCommand struct {
 
 func (x *GotoCommand) Reset() {
 	*x = GotoCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	mi := &file_api_proto_openc2_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -954,7 +1128,7 @@ func (x *GotoCommand) String() string {
 func (*GotoCommand) ProtoMessage() {}
 
 func (x *GotoCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	mi := &file_api_proto_openc2_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -967,7 +1141,7 @@ func (x *GotoCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GotoCommand.ProtoReflect.Descriptor instead.
 func (*GotoCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GotoCommand) GetDestination() *Location {
@@ -993,7 +1167,7 @@ type StopCommand struct {
 
 func (x *StopCommand) Reset() {
 	*x = StopCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	mi := &file_api_proto_openc2_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1005,7 +1179,7 @@ func (x *StopCommand) String() string {
 func (*StopCommand) ProtoMessage() {}
 
 func (x *StopCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	mi := &file_api_proto_openc2_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1018,7 +1192,7 @@ func (x *StopCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCommand.ProtoReflect.Descriptor instead.
 func (*StopCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{9}
 }
 
 // Return to home/launch position
@@ -1030,7 +1204,7 @@ type ReturnHomeCommand struct {
 
 func (x *ReturnHomeCommand) Reset() {
 	*x = ReturnHomeCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[8]
+	mi := &file_api_proto_openc2_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1042,7 +1216,7 @@ func (x *ReturnHomeCommand) String() string {
 func (*ReturnHomeCommand) ProtoMessage() {}
 
 func (x *ReturnHomeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[8]
+	mi := &file_api_proto_openc2_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1055,7 +1229,7 @@ func (x *ReturnHomeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReturnHomeCommand.ProtoReflect.Descriptor instead.
 func (*ReturnHomeCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{8}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{10}
 }
 
 // Set operational mode
@@ -1068,7 +1242,7 @@ type SetModeCommand struct {
 
 func (x *SetModeCommand) Reset() {
 	*x = SetModeCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[9]
+	mi := &file_api_proto_openc2_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1080,7 +1254,7 @@ func (x *SetModeCommand) String() string {
 func (*SetModeCommand) ProtoMessage() {}
 
 func (x *SetModeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[9]
+	mi := &file_api_proto_openc2_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1093,7 +1267,7 @@ func (x *SetModeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModeCommand.ProtoReflect.Descriptor instead.
 func (*SetModeCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{9}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SetModeCommand) GetMode() OperationalMode {
@@ -1113,7 +1287,7 @@ type SetSpeedCommand struct {
 
 func (x *SetSpeedCommand) Reset() {
 	*x = SetSpeedCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[10]
+	mi := &file_api_proto_openc2_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1125,7 +1299,7 @@ func (x *SetSpeedCommand) String() string {
 func (*SetSpeedCommand) ProtoMessage() {}
 
 func (x *SetSpeedCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[10]
+	mi := &file_api_proto_openc2_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1138,7 +1312,7 @@ func (x *SetSpeedCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSpeedCommand.ProtoReflect.Descriptor instead.
 func (*SetSpeedCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{10}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SetSpeedCommand) GetSpeedMs() float32 {
@@ -1165,7 +1339,7 @@ type GatewayMessage struct {
 
 func (x *GatewayMessage) Reset() {
 	*x = GatewayMessage{}
-	mi := &file_api_proto_openc2_proto_msgTypes[11]
+	mi := &file_api_proto_openc2_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1177,7 +1351,7 @@ func (x *GatewayMessage) String() string {
 func (*GatewayMessage) ProtoMessage() {}
 
 func (x *GatewayMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[11]
+	mi := &file_api_proto_openc2_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1190,7 +1364,7 @@ func (x *GatewayMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayMessage.ProtoReflect.Descriptor instead.
 func (*GatewayMessage) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{11}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GatewayMessage) GetPayload() isGatewayMessage_Payload {
@@ -1265,7 +1439,7 @@ type GatewayHeartbeat struct {
 
 func (x *GatewayHeartbeat) Reset() {
 	*x = GatewayHeartbeat{}
-	mi := &file_api_proto_openc2_proto_msgTypes[12]
+	mi := &file_api_proto_openc2_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1277,7 +1451,7 @@ func (x *GatewayHeartbeat) String() string {
 func (*GatewayHeartbeat) ProtoMessage() {}
 
 func (x *GatewayHeartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[12]
+	mi := &file_api_proto_openc2_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1290,7 +1464,7 @@ func (x *GatewayHeartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayHeartbeat.ProtoReflect.Descriptor instead.
 func (*GatewayHeartbeat) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{12}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GatewayHeartbeat) GetTimestampMs() int64 {
@@ -1334,7 +1508,7 @@ type CommandAck struct {
 
 func (x *CommandAck) Reset() {
 	*x = CommandAck{}
-	mi := &file_api_proto_openc2_proto_msgTypes[13]
+	mi := &file_api_proto_openc2_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1346,7 +1520,7 @@ func (x *CommandAck) String() string {
 func (*CommandAck) ProtoMessage() {}
 
 func (x *CommandAck) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[13]
+	mi := &file_api_proto_openc2_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1359,7 +1533,7 @@ func (x *CommandAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandAck.ProtoReflect.Descriptor instead.
 func (*CommandAck) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{13}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CommandAck) GetCommandId() string {
@@ -1408,7 +1582,7 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\x05alert\x18\x03 \x01(\v2\r.openc2.AlertH\x00R\x05alert\x125\n" +
 	"\vcommand_ack\x18\x04 \x01(\v2\x12.openc2.CommandAckH\x00R\n" +
 	"commandAckB\t\n" +
-	"\apayload\"\xd6\x03\n" +
+	"\apayload\"\xa9\x05\n" +
 	"\x10VehicleTelemetry\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12!\n" +
@@ -1423,10 +1597,20 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\x0fsignal_strength\x18\t \x01(\rH\x01R\x0esignalStrength\x88\x01\x01\x12$\n" +
 	"\vbattery_pct\x18\n" +
 	" \x01(\rH\x02R\n" +
-	"batteryPct\x88\x01\x01B\t\n" +
+	"batteryPct\x88\x01\x01\x121\n" +
+	"\x14supported_extensions\x18\x13 \x03(\tR\x13supportedExtensions\x12H\n" +
+	"\n" +
+	"extensions\x18\x14 \x03(\v2(.openc2.VehicleTelemetry.ExtensionsEntryR\n" +
+	"extensions\x1aT\n" +
+	"\x0fExtensionsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12+\n" +
+	"\x05value\x18\x02 \x01(\v2\x15.openc2.ExtensionDataR\x05value:\x028\x01B\t\n" +
 	"\a_statusB\x12\n" +
 	"\x10_signal_strengthB\x0e\n" +
-	"\f_battery_pct\"j\n" +
+	"\f_battery_pct\"C\n" +
+	"\rExtensionData\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\rR\aversion\x12\x18\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\"j\n" +
 	"\bLocation\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\x12$\n" +
@@ -1444,7 +1628,7 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\bseverity\x18\x03 \x01(\x0e2\x15.openc2.AlertSeverityR\bseverity\x12\x12\n" +
 	"\x04code\x18\x04 \x01(\tR\x04code\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\x12,\n" +
-	"\blocation\x18\x06 \x01(\v2\x10.openc2.LocationR\blocation\"\xf6\x02\n" +
+	"\blocation\x18\x06 \x01(\v2\x10.openc2.LocationR\blocation\"\xb0\x03\n" +
 	"\aCommand\x12\x1d\n" +
 	"\n" +
 	"command_id\x18\x01 \x01(\tR\tcommandId\x12\x1d\n" +
@@ -1457,8 +1641,14 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\vreturn_home\x18\f \x01(\v2\x19.openc2.ReturnHomeCommandH\x00R\n" +
 	"returnHome\x123\n" +
 	"\bset_mode\x18\r \x01(\v2\x16.openc2.SetModeCommandH\x00R\asetMode\x126\n" +
-	"\tset_speed\x18\x0e \x01(\v2\x17.openc2.SetSpeedCommandH\x00R\bsetSpeedB\t\n" +
-	"\apayload\"\\\n" +
+	"\tset_speed\x18\x0e \x01(\v2\x17.openc2.SetSpeedCommandH\x00R\bsetSpeed\x128\n" +
+	"\textension\x18\x14 \x01(\v2\x18.openc2.ExtensionCommandH\x00R\textensionB\t\n" +
+	"\apayload\"|\n" +
+	"\x10ExtensionCommand\x12\x1c\n" +
+	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x16\n" +
+	"\x06action\x18\x02 \x01(\tR\x06action\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\rR\aversion\x12\x18\n" +
+	"\apayload\x18\x04 \x01(\fR\apayload\"\\\n" +
 	"\vGotoCommand\x122\n" +
 	"\vdestination\x18\x01 \x01(\v2\x10.openc2.LocationR\vdestination\x12\x19\n" +
 	"\bspeed_ms\x18\x02 \x01(\x02R\aspeedMs\"\r\n" +
@@ -1526,7 +1716,7 @@ func file_api_proto_openc2_proto_rawDescGZIP() []byte {
 }
 
 var file_api_proto_openc2_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_proto_openc2_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_api_proto_openc2_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_api_proto_openc2_proto_goTypes = []any{
 	(VehicleStatus)(0),        // 0: openc2.VehicleStatus
 	(VehicleEnvironment)(0),   // 1: openc2.VehicleEnvironment
@@ -1535,45 +1725,51 @@ var file_api_proto_openc2_proto_goTypes = []any{
 	(AckStatus)(0),            // 4: openc2.AckStatus
 	(*VehicleMessage)(nil),    // 5: openc2.VehicleMessage
 	(*VehicleTelemetry)(nil),  // 6: openc2.VehicleTelemetry
-	(*Location)(nil),          // 7: openc2.Location
-	(*Heartbeat)(nil),         // 8: openc2.Heartbeat
-	(*Alert)(nil),             // 9: openc2.Alert
-	(*Command)(nil),           // 10: openc2.Command
-	(*GotoCommand)(nil),       // 11: openc2.GotoCommand
-	(*StopCommand)(nil),       // 12: openc2.StopCommand
-	(*ReturnHomeCommand)(nil), // 13: openc2.ReturnHomeCommand
-	(*SetModeCommand)(nil),    // 14: openc2.SetModeCommand
-	(*SetSpeedCommand)(nil),   // 15: openc2.SetSpeedCommand
-	(*GatewayMessage)(nil),    // 16: openc2.GatewayMessage
-	(*GatewayHeartbeat)(nil),  // 17: openc2.GatewayHeartbeat
-	(*CommandAck)(nil),        // 18: openc2.CommandAck
+	(*ExtensionData)(nil),     // 7: openc2.ExtensionData
+	(*Location)(nil),          // 8: openc2.Location
+	(*Heartbeat)(nil),         // 9: openc2.Heartbeat
+	(*Alert)(nil),             // 10: openc2.Alert
+	(*Command)(nil),           // 11: openc2.Command
+	(*ExtensionCommand)(nil),  // 12: openc2.ExtensionCommand
+	(*GotoCommand)(nil),       // 13: openc2.GotoCommand
+	(*StopCommand)(nil),       // 14: openc2.StopCommand
+	(*ReturnHomeCommand)(nil), // 15: openc2.ReturnHomeCommand
+	(*SetModeCommand)(nil),    // 16: openc2.SetModeCommand
+	(*SetSpeedCommand)(nil),   // 17: openc2.SetSpeedCommand
+	(*GatewayMessage)(nil),    // 18: openc2.GatewayMessage
+	(*GatewayHeartbeat)(nil),  // 19: openc2.GatewayHeartbeat
+	(*CommandAck)(nil),        // 20: openc2.CommandAck
+	nil,                       // 21: openc2.VehicleTelemetry.ExtensionsEntry
 }
 var file_api_proto_openc2_proto_depIdxs = []int32{
 	6,  // 0: openc2.VehicleMessage.telemetry:type_name -> openc2.VehicleTelemetry
-	8,  // 1: openc2.VehicleMessage.heartbeat:type_name -> openc2.Heartbeat
-	9,  // 2: openc2.VehicleMessage.alert:type_name -> openc2.Alert
-	18, // 3: openc2.VehicleMessage.command_ack:type_name -> openc2.CommandAck
-	7,  // 4: openc2.VehicleTelemetry.location:type_name -> openc2.Location
+	9,  // 1: openc2.VehicleMessage.heartbeat:type_name -> openc2.Heartbeat
+	10, // 2: openc2.VehicleMessage.alert:type_name -> openc2.Alert
+	20, // 3: openc2.VehicleMessage.command_ack:type_name -> openc2.CommandAck
+	8,  // 4: openc2.VehicleTelemetry.location:type_name -> openc2.Location
 	0,  // 5: openc2.VehicleTelemetry.status:type_name -> openc2.VehicleStatus
 	1,  // 6: openc2.VehicleTelemetry.environment:type_name -> openc2.VehicleEnvironment
-	0,  // 7: openc2.Heartbeat.status:type_name -> openc2.VehicleStatus
-	2,  // 8: openc2.Alert.severity:type_name -> openc2.AlertSeverity
-	7,  // 9: openc2.Alert.location:type_name -> openc2.Location
-	11, // 10: openc2.Command.goto:type_name -> openc2.GotoCommand
-	12, // 11: openc2.Command.stop:type_name -> openc2.StopCommand
-	13, // 12: openc2.Command.return_home:type_name -> openc2.ReturnHomeCommand
-	14, // 13: openc2.Command.set_mode:type_name -> openc2.SetModeCommand
-	15, // 14: openc2.Command.set_speed:type_name -> openc2.SetSpeedCommand
-	7,  // 15: openc2.GotoCommand.destination:type_name -> openc2.Location
-	3,  // 16: openc2.SetModeCommand.mode:type_name -> openc2.OperationalMode
-	10, // 17: openc2.GatewayMessage.command:type_name -> openc2.Command
-	17, // 18: openc2.GatewayMessage.heartbeat:type_name -> openc2.GatewayHeartbeat
-	4,  // 19: openc2.CommandAck.status:type_name -> openc2.AckStatus
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	21, // 7: openc2.VehicleTelemetry.extensions:type_name -> openc2.VehicleTelemetry.ExtensionsEntry
+	0,  // 8: openc2.Heartbeat.status:type_name -> openc2.VehicleStatus
+	2,  // 9: openc2.Alert.severity:type_name -> openc2.AlertSeverity
+	8,  // 10: openc2.Alert.location:type_name -> openc2.Location
+	13, // 11: openc2.Command.goto:type_name -> openc2.GotoCommand
+	14, // 12: openc2.Command.stop:type_name -> openc2.StopCommand
+	15, // 13: openc2.Command.return_home:type_name -> openc2.ReturnHomeCommand
+	16, // 14: openc2.Command.set_mode:type_name -> openc2.SetModeCommand
+	17, // 15: openc2.Command.set_speed:type_name -> openc2.SetSpeedCommand
+	12, // 16: openc2.Command.extension:type_name -> openc2.ExtensionCommand
+	8,  // 17: openc2.GotoCommand.destination:type_name -> openc2.Location
+	3,  // 18: openc2.SetModeCommand.mode:type_name -> openc2.OperationalMode
+	11, // 19: openc2.GatewayMessage.command:type_name -> openc2.Command
+	19, // 20: openc2.GatewayMessage.heartbeat:type_name -> openc2.GatewayHeartbeat
+	4,  // 21: openc2.CommandAck.status:type_name -> openc2.AckStatus
+	7,  // 22: openc2.VehicleTelemetry.ExtensionsEntry.value:type_name -> openc2.ExtensionData
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_openc2_proto_init() }
@@ -1588,14 +1784,15 @@ func file_api_proto_openc2_proto_init() {
 		(*VehicleMessage_CommandAck)(nil),
 	}
 	file_api_proto_openc2_proto_msgTypes[1].OneofWrappers = []any{}
-	file_api_proto_openc2_proto_msgTypes[5].OneofWrappers = []any{
+	file_api_proto_openc2_proto_msgTypes[6].OneofWrappers = []any{
 		(*Command_Goto)(nil),
 		(*Command_Stop)(nil),
 		(*Command_ReturnHome)(nil),
 		(*Command_SetMode)(nil),
 		(*Command_SetSpeed)(nil),
+		(*Command_Extension)(nil),
 	}
-	file_api_proto_openc2_proto_msgTypes[11].OneofWrappers = []any{
+	file_api_proto_openc2_proto_msgTypes[13].OneofWrappers = []any{
 		(*GatewayMessage_Command)(nil),
 		(*GatewayMessage_Heartbeat)(nil),
 	}
@@ -1605,7 +1802,7 @@ func file_api_proto_openc2_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_openc2_proto_rawDesc), len(file_api_proto_openc2_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   14,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
