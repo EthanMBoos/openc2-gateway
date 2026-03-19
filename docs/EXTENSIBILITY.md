@@ -30,12 +30,14 @@ OpenC2 is a **platform**, not an **application**. The architecture must separate
 
 ### Architecture Overview
 
+> **Note:** This diagram shows the conceptual architecture. For MVP, extensions live in-tree under `internal/extensions/`. See [Repository Strategy (MVP)](#repository-strategy-mvp) for current structure.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              EXTENSION REPOS                                │
+│                        EXTENSIONS (in-tree for MVP)                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
 │  │   excavator/    │  │    maritime/    │  │     camera/     │              │
-│  │   v1/*.proto    │  │    v1/*.proto   │  │    v1/*.proto   │              │
+│  │   *.proto       │  │    *.proto      │  │    *.proto      │              │
 │  │   manifest.yaml │  │   manifest.yaml │  │   manifest.yaml │              │
 │  │   codec.go      │  │    codec.go     │  │    codec.go     │              │
 │  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
@@ -125,7 +127,9 @@ message ExtensionCommand {
 
 ### JSON Wire Format
 
-Gateway translates extensions to JSON for UI consumption:
+Gateway translates extensions to JSON for UI consumption.
+
+**Welcome Snapshot:** The `welcome` message contains core telemetry only — no extension data. Clients receive extension state on the first telemetry frame after handshake.
 
 **Telemetry with extensions:**
 ```json
@@ -230,108 +234,52 @@ const availableCommands = extensionCommands.filter(cmd =>
 
 ---
 
-## Project Manifest
+## Project Manifest (MVP)
 
-Each project ships a **manifest file** that tells the UI and gateway what to expect:
+Each extension ships a **manifest file** declaring its namespace and commands. For MVP, manifests are minimal — just enough for the UI to render ActionPanel buttons.
+
+> **Phase 2:** Dynamic telemetry panels with gauges, badges, and color scales. For MVP, hard-code extension-specific panels in the UI.
 
 ```yaml
-# excavator/v1/manifest.yaml
+# internal/extensions/excavator/manifest.yaml
 
 namespace: excavator
 version: "1.0"
 displayName: "Excavator Controls"
 
-# Telemetry extensions (fields added to vehicle state)
-telemetry:
-  extensions:
-    - name: bucketAngle
-      type: number
-      unit: degrees
-      range: [0, 90]
-      description: "Current bucket angle"
-      
-    - name: hydraulicPressure
-      type: number
-      unit: psi
-      range: [0, 3000]
-      warning: 2500
-      critical: 2800
-      
-    - name: armExtension
-      type: number
-      unit: meters
-      range: [0, 10]
-      
-    - name: mode
-      type: enum
-      values: ["IDLE", "DIGGING", "DUMPING", "TRAVELING"]
-
-# Custom commands (appear in ActionPanel)
+# Custom commands (appear in ActionPanel when vehicle supports this extension)
 commands:
   - action: setBucketAngle
     label: "Set Bucket"
-    icon: "bucket"
     description: "Set the bucket angle"
-    params:
-      - name: angle
-        type: number
-        label: "Angle"
-        range: [0, 90]
-        default: 45
         
   - action: setArmExtension
     label: "Extend Arm"
-    icon: "arm"
-    params:
-      - name: extension
-        type: number
-        label: "Extension"
-        range: [0, 10]
-        unit: meters
         
   - action: emergencyRetract
     label: "Emergency Retract"
-    icon: "warning"
     confirmation: true
-    confirmMessage: "Retract all hydraulics immediately?"
-
-# UI panel configuration
-ui:
-  panels:
-    - type: telemetry
-      title: "Excavator Status"
-      position: right  # left, right, or bottom
-      fields:
-        - extension: bucketAngle
-          display: gauge
-          label: "Bucket"
-          
-        - extension: hydraulicPressure
-          display: bar
-          label: "Hydraulics"
-          colorScale:
-            - [0, 2500, "green"]
-            - [2500, 2800, "yellow"]
-            - [2800, 3000, "red"]
-            
-        - extension: mode
-          display: badge
-          label: "Mode"
 ```
+
+**MVP scope:**
+- `namespace`, `version`, `displayName` — required metadata
+- `commands` — list of actions the UI can send
+- No `telemetry` field (extension data is opaque to manifest for now)
+- No `ui.panels` (hard-code panels for first 1-2 extensions)
 
 ---
 
 ## Extension Proto Files
 
-Each team defines their own proto in the extensions repo:
+Each extension defines its own proto. For MVP, these live in-tree under `internal/extensions/`:
 
 ```protobuf
-// openc2-extensions/excavator/v1/excavator.proto
+// internal/extensions/excavator/excavator.proto
 
 syntax = "proto3";
-package openc2.extensions.excavator.v1;
+package openc2.extensions.excavator;
 
-option go_package = "github.com/your-org/openc2-extensions/excavator/v1";
+option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator";
 
 // Telemetry extension (serialized into VehicleTelemetry.extensions["excavator"])
 message ExcavatorTelemetry {
@@ -398,6 +346,8 @@ type Codec interface {
     Manifest() *Manifest
 }
 ```
+
+**Version Compatibility Contract:** Codecs MUST decode all schema versions they have ever shipped (backward compatibility). When encoding commands, use the latest version. If a vehicle sends a version the codec doesn't recognize, gateway passes through with `_error` metadata — the UI shows the debug panel, operations continue.
 
 ### Extension Registry
 
@@ -476,18 +426,18 @@ func DecodeExtensions(extensions map[string]*ExtensionData) (map[string]any, err
 }
 ```
 
-### Example Extension Codec
+### Example Extension Codec (MVP)
 
 ```go
-// In openc2-extensions repo: excavator/codec.go
+// internal/extensions/excavator/codec.go
 
 package excavator
 
 import (
     "fmt"
     
-    "github.com/your-org/openc2-extensions/excavator/v1/pb"
-    "github.com/your-org/openc2-gateway/internal/extensions"
+    pb "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator"
+    "github.com/EthanMBoos/openc2-gateway/internal/extensions"
     "google.golang.org/protobuf/proto"
 )
 
@@ -495,79 +445,56 @@ func init() {
     extensions.Register(&Codec{})
 }
 
-type Codec struct {
-    manifest *extensions.Manifest
-}
+type Codec struct{}
 
 func (c *Codec) Namespace() string { return "excavator" }
 
-func (c *Codec) SupportedVersions() []uint32 { return []uint32{1, 2} }
+func (c *Codec) SupportedVersions() []uint32 { return []uint32{1} }
 
 func (c *Codec) DecodeTelemetry(version uint32, data []byte) (map[string]any, error) {
-    switch version {
-    case 1:
-        return c.decodeTelemetryV1(data)
-    case 2:
-        return c.decodeTelemetryV2(data)
-    default:
-        return nil, fmt.Errorf("unsupported excavator telemetry version %d (supported: %v)", 
-            version, c.SupportedVersions())
+    if version != 1 {
+        return nil, fmt.Errorf("unsupported excavator telemetry version %d", version)
     }
-}
-
-func (c *Codec) decodeTelemetryV1(data []byte) (map[string]any, error) {
-    var msg pb.ExcavatorTelemetryV1
+    
+    var msg pb.ExcavatorTelemetry
     if err := proto.Unmarshal(data, &msg); err != nil {
-        return nil, fmt.Errorf("unmarshal excavator telemetry v1: %w", err)
+        return nil, fmt.Errorf("unmarshal excavator telemetry: %w", err)
     }
     return map[string]any{
         "bucketAngle":       msg.BucketAngleDeg,
         "hydraulicPressure": msg.HydraulicPressurePsi,
         "armExtension":      msg.ArmExtensionM,
         "mode":              msg.Mode.String(),
-    }, nil
-}
-
-func (c *Codec) decodeTelemetryV2(data []byte) (map[string]any, error) {
-    var msg pb.ExcavatorTelemetryV2  // V2 adds new fields
-    if err := proto.Unmarshal(data, &msg); err != nil {
-        return nil, fmt.Errorf("unmarshal excavator telemetry v2: %w", err)
-    }
-    return map[string]any{
-        "bucketAngle":       msg.BucketAngleDeg,
-        "hydraulicPressure": msg.HydraulicPressurePsi,
-        "armExtension":      msg.ArmExtensionM,
-        "mode":              msg.Mode.String(),
-        "trackTension":      msg.TrackTensionPsi,  // New in v2
     }, nil
 }
 
 func (c *Codec) EncodeCommand(action string, data map[string]any) (uint32, []byte, error) {
-    // Always encode with latest version
-    const currentVersion uint32 = 2
     switch action {
     case "setBucketAngle":
         angle, ok := data["angle"].(float64)
         if !ok {
-            return nil, fmt.Errorf("missing or invalid 'angle' field")
+            return 0, nil, fmt.Errorf("missing or invalid 'angle' field")
         }
         msg := &pb.SetBucketAngleCommand{AngleDeg: float32(angle)}
-        return proto.Marshal(msg)
+        payload, err := proto.Marshal(msg)
+        return 1, payload, err
         
     case "setArmExtension":
         ext, ok := data["extension"].(float64)
         if !ok {
-            return nil, fmt.Errorf("missing or invalid 'extension' field")
+            return 0, nil, fmt.Errorf("missing or invalid 'extension' field")
         }
         msg := &pb.SetArmExtensionCommand{ExtensionM: float32(ext)}
-        return proto.Marshal(msg)
+        payload, err := proto.Marshal(msg)
+        return 1, payload, err
         
     case "emergencyRetract":
         msg := &pb.EmergencyRetractCommand{}
-        return proto.Marshal(msg)
+        payload, err := proto.Marshal(msg)
+        return 1, payload, err
         
     default:
-        return nil, fmt.Errorf("unknown excavator action: %s", action)
+        return 0, nil, fmt.Errorf("unknown excavator action: %s", action)
     }
 }
 
@@ -591,7 +518,9 @@ func (c *Codec) Manifest() *extensions.Manifest {
 }
 ```
 
-### Gateway Main: Import Extensions
+### Gateway Main: Import Extensions (MVP)
+
+For MVP, extensions live **in-tree** under `internal/extensions/`. No separate repo yet.
 
 ```go
 // cmd/gateway/main.go
@@ -600,14 +529,12 @@ package main
 
 import (
     // Core packages
-    "github.com/your-org/openc2-gateway/internal/config"
-    "github.com/your-org/openc2-gateway/internal/websocket"
+    "github.com/EthanMBoos/openc2-gateway/internal/config"
+    "github.com/EthanMBoos/openc2-gateway/internal/websocket"
     // ...
     
-    // Extension codecs - blank import to trigger init() registration
-    _ "github.com/your-org/openc2-extensions/excavator"
-    _ "github.com/your-org/openc2-extensions/maritime"
-    _ "github.com/your-org/openc2-extensions/camera"
+    // Extension codecs - in-tree for MVP
+    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/excavator"
 )
 
 func main() {
@@ -616,33 +543,32 @@ func main() {
 }
 ```
 
-### Manifest Endpoint
+### Manifest Endpoint (MVP)
 
-Gateway serves manifests to UI clients:
+For MVP, serve a static JSON file bundled at build time:
 
 ```go
 // internal/websocket/server.go
 
+//go:embed manifests.json
+var manifestsJSON []byte
+
 func (s *Server) handleManifests(w http.ResponseWriter, r *http.Request) {
-    manifests := make(map[string]any)
-    
-    for _, codec := range extensions.All() {
-        manifests[codec.Namespace()] = codec.Manifest()
-    }
-    
     w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(manifests)
+    w.Write(manifestsJSON)
 }
 
 // Register in server setup:
 // http.HandleFunc("/manifests", s.handleManifests)
 ```
 
+**Phase 2:** Dynamically collect manifests from registered codecs at runtime.
+
 ---
 
 ## UI Implementation
 
-### Project Store
+### Project Store (MVP)
 
 ```typescript
 // stores/projectStore.ts
@@ -651,23 +577,15 @@ interface ProjectManifest {
   namespace: string;
   version: string;
   displayName: string;
-  telemetry: {
-    extensions: ExtensionField[];
-  };
   commands: ExtensionCommand[];
-  ui: {
-    panels: PanelConfig[];
-  };
 }
 
 interface ProjectState {
-  activeProject: string | null;
   manifests: Record<string, ProjectManifest>;
   loadManifests: () => Promise<void>;
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
-  activeProject: null,
   manifests: {},
   
   loadManifests: async () => {
@@ -786,52 +704,25 @@ function ExtensionActionButton({
 }
 ```
 
-### Dynamic Telemetry Panels
+### Extension Telemetry Panels (Phase 2)
+
+> **MVP:** Hard-code extension panels for your first 1-2 projects. Extract to manifest-driven rendering once you have 3+ extensions and understand common patterns.
 
 ```typescript
-// components/panels/ExtensionTelemetryPanel.tsx
+// components/panels/ExcavatorPanel.tsx (MVP - hard-coded)
 
-function ExtensionTelemetryPanel({ namespace }: { namespace: string }) {
-  const manifest = useProjectStore(s => s.manifests[namespace]);
+function ExcavatorPanel() {
   const vehicle = useSelectedVehicle();
-  const extensionData = vehicle?.extensions[namespace];
+  const data = vehicle?.extensions?.excavator;
   
-  if (!manifest || !extensionData) return null;
+  if (!data) return null;
   
   return (
     <div className="extension-panel">
-      <h3>{manifest.displayName}</h3>
-      
-      {manifest.ui.panels.map((panel, idx) => (
-        <DynamicPanel 
-          key={idx}
-          config={panel}
-          data={extensionData}
-        />
-      ))}
-    </div>
-  );
-}
-
-function DynamicPanel({ config, data }: DynamicPanelProps) {
-  return (
-    <div className="panel-section">
-      <h4>{config.title}</h4>
-      
-      {config.fields.map(field => {
-        const value = data[field.extension];
-        
-        switch (field.display) {
-          case 'gauge':
-            return <Gauge key={field.extension} value={value} label={field.label} />;
-          case 'bar':
-            return <ProgressBar key={field.extension} value={value} colorScale={field.colorScale} />;
-          case 'badge':
-            return <Badge key={field.extension} value={value} label={field.label} />;
-          default:
-            return <span key={field.extension}>{field.label}: {value}</span>;
-        }
-      })}
+      <h3>Excavator Status</h3>
+      <div>Bucket Angle: {data.bucketAngle}°</div>
+      <div>Hydraulic Pressure: {data.hydraulicPressure} psi</div>
+      <div>Mode: {data.mode}</div>
     </div>
   );
 }
@@ -839,141 +730,39 @@ function DynamicPanel({ config, data }: DynamicPanelProps) {
 
 ---
 
-## Repository Strategy
+## Repository Strategy (MVP)
+
+For MVP, extensions live **in-tree**. Split to separate repo when you have multiple contributing teams.
 
 ### Directory Structure
 
 ```
-github.com/your-org/
-├── openc2-gateway/           # YOU OWN - core gateway
-│   ├── api/proto/
-│   │   └── openc2.proto      # Core protocol only
-│   ├── internal/
-│   │   ├── extensions/       # Extension loading/routing
-│   │   ├── protocol/
-│   │   ├── registry/
-│   │   └── ...
-│   ├── cmd/gateway/
-│   └── docs/
-│       └── EXTENSIBILITY.md  # This document
-│
-├── openc2-extensions/        # SHARED - teams contribute
-│   ├── CODEOWNERS            # Each team owns their directory
-│   ├── excavator/
-│   │   ├── OWNERS
-│   │   └── v1/
+openc2-gateway/
+├── api/proto/
+│   └── openc2.proto          # Core protocol
+├── internal/
+│   ├── extensions/           # Extension framework
+│   │   ├── registry.go       # Codec registry
+│   │   ├── codec.go          # Codec interface
+│   │   └── excavator/        # First extension (in-tree for MVP)
 │   │       ├── excavator.proto
-│   │       ├── excavator.pb.go   # generated
-│   │       ├── codec.go          # Go codec for gateway
-│   │       └── manifest.yaml     # UI schema
-│   ├── maritime/
-│   │   ├── OWNERS
-│   │   └── v1/
-│   │       ├── maritime.proto
+│   │       ├── excavator.pb.go
 │   │       ├── codec.go
 │   │       └── manifest.yaml
-│   └── camera/
-│       └── v1/
-│           └── ...
-│
-└── OpenC2/                   # YOU OWN - UI
-    └── src/renderer/
-        ├── stores/
-        │   └── projectStore.ts
-        └── components/
-            └── extensions/   # Manifest-driven rendering
+│   ├── protocol/
+│   ├── registry/
+│   └── ...
+├── cmd/gateway/
+└── docs/
 ```
 
-### CODEOWNERS
+### When to Split
 
-```
-# openc2-extensions/CODEOWNERS
-
-# Default owners (you)
-*                    @openc2-core-team
-
-# Team-specific ownership
-/excavator/          @excavator-team
-/maritime/           @maritime-team
-/camera/             @camera-team
-```
-
-### Repository Options
-
-| Approach | Pros | Cons | When to Use |
-|----------|------|------|-------------|
-| **Monorepo** (`openc2-extensions/`) | Single source of truth, atomic updates, easy CI | Teams step on each other, you're the bottleneck | Small org, <5 teams |
-| **Polyrepo** (each team owns their repo) | Full autonomy, independent versioning | Coordination hell, diamond dependencies | Large org, strict ownership |
-| **Schema registry** (Buf.build) | Versioned schemas, breaking change detection, generated code hosting | Extra infra | Enterprise, strict compatibility needs |
-
-**Recommendation**: Start with monorepo + CODEOWNERS. Graduate to Buf registry if you hit 10+ teams or need strict versioning.
-
----
-
-## Build & Release Flow
-
-### Extension Repo CI
-
-```yaml
-# openc2-extensions/.github/workflows/ci.yml
-
-name: CI
-on: [push, pull_request]
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install buf
-        uses: bufbuild/buf-setup-action@v1
-        
-      - name: Lint protos
-        run: buf lint
-        
-      - name: Check breaking changes
-        run: buf breaking --against '.git#branch=main'
-        
-      - name: Generate Go code
-        run: buf generate
-        
-      - name: Validate manifests
-        run: |
-          for manifest in */v*/manifest.yaml; do
-            echo "Validating $manifest"
-            yq eval '.' "$manifest" > /dev/null
-          done
-          
-      - name: Test codecs
-        run: go test ./...
-```
-
-### Gateway Integration
-
-```yaml
-# openc2-gateway/.github/workflows/ci.yml
-
-jobs:
-  build:
-    steps:
-      # ... existing steps ...
-      
-      - name: Update extensions
-        run: go get github.com/your-org/openc2-extensions@latest
-        
-      - name: Build
-        run: go build ./...
-```
-
-### Release Flow
-
-1. Team updates `excavator.proto` and `manifest.yaml` in extensions repo
-2. Extensions repo CI runs: lint, breaking change check, tests
-3. PR merged → Extensions repo releases `v1.3.0`
-4. Gateway bumps dependency: `go get github.com/your-org/openc2-extensions@v1.3.0`
-5. Gateway releases with new extension support
-6. UI fetches manifests on connect → new buttons appear automatically
+| Trigger | Action |
+|---------|--------|
+| 3+ extensions | Consider `openc2-extensions/` monorepo |
+| External team contributing | Split to separate repo with CODEOWNERS |
+| Breaking change coordination issues | Consider Buf.build schema registry |
 
 ---
 
@@ -988,68 +777,30 @@ jobs:
 | Consistent behavior | All clients see identical decoded data |
 | Type-safe decoding | Gateway codec catches malformed extension data with clear errors |
 
-### Development Workflow: Passthrough Mode
+### Unknown Extensions (Fail-Fast)
 
-Extension developers need to iterate without waiting for gateway releases. To support this, the gateway offers a passthrough mode for **development only**:
-
-```bash
-OPENC2_PASSTHROUGH_EXTENSIONS=true go run ./cmd/gateway
-```
-
-**Behavior:**
-
-- **Known extensions** (registered codecs): Decoded to JSON as normal
-- **Unknown extensions** (no codec): Passed through as base64 with metadata
+For MVP, the gateway **rejects unknown extensions** with a clear error:
 
 ```json
 {
   "extensions": {
     "maritime": {
-      "_raw": "CgQtDABA...",
-      "_passthrough": true,
-      "_namespace": "maritime"
+      "_version": 1,
+      "_error": "unknown extension namespace: maritime"
     }
   }
 }
 ```
 
-### Stock UI Handling
+**UI handling:** Display the error in a debug panel. This tells the operator "extension codec not integrated" without breaking the rest of telemetry.
 
-The stock UI renders passthrough data in a debug panel — no UI fork required:
-
-```typescript
-// ExtensionPanel.tsx
-function ExtensionPanel({ namespace, data }: Props) {
-  // Passthrough extensions: show debug view
-  if (data._passthrough) {
-    return (
-      <div className="extension-debug">
-        <h4>⚠️ {namespace} (unregistered)</h4>
-        <code>{data._raw}</code>
-        <small>Extension codec not integrated. Contact platform team.</small>
-      </div>
-    );
-  }
-  
-  // Registered extensions: render from manifest
-  const manifest = useProjectStore(s => s.manifests[namespace]);
-  return <DynamicPanel config={manifest} data={data} />;
-}
-```
-
-**Team workflow:**
-
-1. Maritime team defines `maritime.proto` — this is the **payload** schema for their extension bytes
-2. They emit `VehicleTelemetry` (**the envelope**) on multicast, populating `extensions["maritime"]` with serialized `MaritimeTelemetry`
-3. They run gateway with `OPENC2_PASSTHROUGH_EXTENSIONS=true`
-4. Stock UI shows their extension data in a debug panel (raw base64 + "unregistered" label)
-5. They decode locally via browser console or external tool to validate their proto
-6. Once stable, they submit codec + manifest PR to `openc2-extensions`
-7. After gateway release, their data renders through the normal manifest-driven panels
+**Development workflow:**
+1. Team defines their `maritime.proto` and implements a codec
+2. Team adds codec to `internal/extensions/maritime/` (in-tree for MVP)
+3. Team runs local gateway with their codec
+4. Once validated, PR to main branch
 
 **Key point:** All roads lead to `openc2.proto`. Extension protos define what goes *inside* the `extensions` bytes field — they're payloads nested in the OpenC2 envelope, not alternatives to it.
-
-**Important:** Passthrough is for development only. Production gateways run with passthrough disabled (the default). If you see `_passthrough: true` in production, the extension codec isn't integrated yet.
 
 ---
 
@@ -1059,36 +810,45 @@ function ExtensionPanel({ namespace, data }: Props) {
 |----------|--------|-----------|
 | Where does validation live? | **Both** — gateway rejects malformed, UI provides UX | Defense in depth |
 | Proto for extensions? | **Yes** — proto for wire, JSON for UI display | Best of both: type-safe wire, easy UI consumption |
-| How are manifests deployed? | **Gateway serves them** (`/manifests` endpoint) | Single source of truth, no version skew |
+| How are manifests deployed? | **Static JSON** (MVP) / Gateway serves them (Phase 2) | Simple deployment, no runtime complexity |
 | Multiple namespaces per vehicle? | **Yes** — a vehicle can have `excavator` + `camera` extensions | Composition over inheritance |
-| Unknown extensions? | **Pass through with `_error` field** (or `_passthrough` in dev mode) | Graceful degradation, don't break on unknown |
+| Unknown extensions? | **Fail with `_error` field** | Clear signal to integrate codec |
 
 ---
 
 ## What This Architecture Provides
 
 1. **Single codebase** — no forks for different teams
-2. **Teams own their extensions** — they define manifest + proto, you provide the platform
-3. **Graceful degradation** — UI ignores unknown extensions (future-proof)
+2. **Teams own their extensions** — they define proto + codec, you provide the platform
+3. **Graceful degradation** — unknown extensions show error, don't break telemetry
 4. **Type safety where it matters** — core protocol is typed, extensions are schema-validated
-5. **Testability** — manifests can be validated in CI before deployment
-6. **Unblocked development** — passthrough mode lets teams iterate without waiting for gateway releases
+5. **Testability** — codecs can be unit tested in CI
 
 ---
 
 ## Implementation Phases
 
+### MVP (This Release)
+
 | Phase | Gateway | UI | Effort |
 |-------|---------|-----|--------|
-| 1. Add `extensions` field to proto | Add `map<string, bytes> extensions` to `VehicleTelemetry` and `Command` | Add `extensions` to `VehicleInstance` | 1 day |
-| 2. Extension registry | Create `internal/extensions/` package with codec interface and registry | — | 2 days |
-| 3. Manifest loader | Load YAML manifests, expose via `/manifests` endpoint | Fetch manifests on connect, create `projectStore` | 2 days |
-| 4. First extension | Implement excavator codec as reference | — | 1 day |
-| 5. Dynamic ActionPanel | Route extension commands | Render buttons from manifest | 2 days |
-| 6. Extension validation | Validate extension commands against manifest schema | Client-side validation before send | 2 days |
-| 7. Dynamic telemetry panels | — | Render panels/gauges from manifest schema | 3-4 days |
+| 1. Extension envelope | `extensions` field already in proto ✓ | Add `extensions` to `VehicleInstance` | 0.5 day |
+| 2. Extension registry | Create `internal/extensions/` with codec interface | — | 1 day |
+| 3. Telemetry translation | Decode extensions via codecs, include in JSON | Store extension data in vehicle state | 1 day |
+| 4. First codec | Implement excavator codec in-tree | Hard-coded ExcavatorPanel | 1 day |
+| 5. Extension commands | Route `action: "extension"` through codecs | Extension buttons in ActionPanel | 1 day |
+| 6. Static manifests | `/manifests` returns static JSON | Fetch on connect | 0.5 day |
 
-**Total**: ~2 weeks for MVP extensibility
+**Total**: ~5 days for MVP extensibility
+
+### Phase 2 (Post-MVP)
+
+| Feature | Description |
+|---------|-------------|
+| Dynamic manifest loading | Collect manifests from registered codecs at runtime |
+| Manifest-driven UI panels | Render gauges/badges from manifest schema |
+| External extensions repo | Split to `openc2-extensions/` with CODEOWNERS |
+| Manifest validation CI | JSON Schema validation in CI |
 
 ---
 
