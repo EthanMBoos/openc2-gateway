@@ -136,6 +136,78 @@ func (VehicleEnvironment) EnumDescriptor() ([]byte, []int) {
 	return file_api_proto_openc2_proto_rawDescGZIP(), []int{1}
 }
 
+// SensorType enumerates common sensor categories.
+// UI can use this to select appropriate visualization (video player, point cloud, etc.)
+type SensorType int32
+
+const (
+	SensorType_SENSOR_UNKNOWN        SensorType = 0
+	SensorType_SENSOR_CAMERA_RGB     SensorType = 1
+	SensorType_SENSOR_CAMERA_THERMAL SensorType = 2
+	SensorType_SENSOR_CAMERA_DEPTH   SensorType = 3
+	SensorType_SENSOR_LIDAR_2D       SensorType = 4
+	SensorType_SENSOR_LIDAR_3D       SensorType = 5
+	SensorType_SENSOR_SONAR          SensorType = 6
+	SensorType_SENSOR_RADAR          SensorType = 7
+	SensorType_SENSOR_IMU            SensorType = 8
+	SensorType_SENSOR_GPS            SensorType = 9
+)
+
+// Enum value maps for SensorType.
+var (
+	SensorType_name = map[int32]string{
+		0: "SENSOR_UNKNOWN",
+		1: "SENSOR_CAMERA_RGB",
+		2: "SENSOR_CAMERA_THERMAL",
+		3: "SENSOR_CAMERA_DEPTH",
+		4: "SENSOR_LIDAR_2D",
+		5: "SENSOR_LIDAR_3D",
+		6: "SENSOR_SONAR",
+		7: "SENSOR_RADAR",
+		8: "SENSOR_IMU",
+		9: "SENSOR_GPS",
+	}
+	SensorType_value = map[string]int32{
+		"SENSOR_UNKNOWN":        0,
+		"SENSOR_CAMERA_RGB":     1,
+		"SENSOR_CAMERA_THERMAL": 2,
+		"SENSOR_CAMERA_DEPTH":   3,
+		"SENSOR_LIDAR_2D":       4,
+		"SENSOR_LIDAR_3D":       5,
+		"SENSOR_SONAR":          6,
+		"SENSOR_RADAR":          7,
+		"SENSOR_IMU":            8,
+		"SENSOR_GPS":            9,
+	}
+)
+
+func (x SensorType) Enum() *SensorType {
+	p := new(SensorType)
+	*p = x
+	return p
+}
+
+func (x SensorType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SensorType) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_proto_openc2_proto_enumTypes[2].Descriptor()
+}
+
+func (SensorType) Type() protoreflect.EnumType {
+	return &file_api_proto_openc2_proto_enumTypes[2]
+}
+
+func (x SensorType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SensorType.Descriptor instead.
+func (SensorType) EnumDescriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{2}
+}
+
 type AlertSeverity int32
 
 const (
@@ -172,11 +244,11 @@ func (x AlertSeverity) String() string {
 }
 
 func (AlertSeverity) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_openc2_proto_enumTypes[2].Descriptor()
+	return file_api_proto_openc2_proto_enumTypes[3].Descriptor()
 }
 
 func (AlertSeverity) Type() protoreflect.EnumType {
-	return &file_api_proto_openc2_proto_enumTypes[2]
+	return &file_api_proto_openc2_proto_enumTypes[3]
 }
 
 func (x AlertSeverity) Number() protoreflect.EnumNumber {
@@ -185,7 +257,7 @@ func (x AlertSeverity) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AlertSeverity.Descriptor instead.
 func (AlertSeverity) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{3}
 }
 
 type OperationalMode int32
@@ -221,11 +293,11 @@ func (x OperationalMode) String() string {
 }
 
 func (OperationalMode) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_openc2_proto_enumTypes[3].Descriptor()
+	return file_api_proto_openc2_proto_enumTypes[4].Descriptor()
 }
 
 func (OperationalMode) Type() protoreflect.EnumType {
-	return &file_api_proto_openc2_proto_enumTypes[3]
+	return &file_api_proto_openc2_proto_enumTypes[4]
 }
 
 func (x OperationalMode) Number() protoreflect.EnumNumber {
@@ -234,7 +306,7 @@ func (x OperationalMode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OperationalMode.Descriptor instead.
 func (OperationalMode) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{4}
 }
 
 // Vehicle ack status values.
@@ -276,11 +348,11 @@ func (x AckStatus) String() string {
 }
 
 func (AckStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_proto_openc2_proto_enumTypes[4].Descriptor()
+	return file_api_proto_openc2_proto_enumTypes[5].Descriptor()
 }
 
 func (AckStatus) Type() protoreflect.EnumType {
-	return &file_api_proto_openc2_proto_enumTypes[4]
+	return &file_api_proto_openc2_proto_enumTypes[5]
 }
 
 func (x AckStatus) Number() protoreflect.EnumNumber {
@@ -289,7 +361,7 @@ func (x AckStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AckStatus.Descriptor instead.
 func (AckStatus) EnumDescriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{5}
 }
 
 // VehicleMessage is the envelope for all messages from vehicles to gateway.
@@ -701,11 +773,15 @@ func (x *Location) GetAltitudeMslM() float32 {
 // Heartbeat message sent periodically to confirm connectivity
 // Note: battery_pct is only in VehicleTelemetry (single source of truth)
 type Heartbeat struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	VehicleId     string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
-	TimestampMs   int64                  `protobuf:"varint,2,opt,name=timestamp_ms,json=timestampMs,proto3" json:"timestamp_ms,omitempty"`
-	Status        VehicleStatus          `protobuf:"varint,3,opt,name=status,proto3,enum=openc2.VehicleStatus" json:"status,omitempty"`
-	UptimeMs      int64                  `protobuf:"varint,4,opt,name=uptime_ms,json=uptimeMs,proto3" json:"uptime_ms,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	VehicleId   string                 `protobuf:"bytes,1,opt,name=vehicle_id,json=vehicleId,proto3" json:"vehicle_id,omitempty"`
+	TimestampMs int64                  `protobuf:"varint,2,opt,name=timestamp_ms,json=timestampMs,proto3" json:"timestamp_ms,omitempty"`
+	Status      VehicleStatus          `protobuf:"varint,3,opt,name=status,proto3,enum=openc2.VehicleStatus" json:"status,omitempty"`
+	UptimeMs    int64                  `protobuf:"varint,4,opt,name=uptime_ms,json=uptimeMs,proto3" json:"uptime_ms,omitempty"`
+	// Capability advertisement - tells gateway/UI what this vehicle supports.
+	// Sent on every heartbeat so capabilities can change at runtime
+	// (e.g., sensor added, extension module loaded).
+	Capabilities  *VehicleCapabilities `protobuf:"bytes,5,opt,name=capabilities,proto3" json:"capabilities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -768,6 +844,272 @@ func (x *Heartbeat) GetUptimeMs() int64 {
 	return 0
 }
 
+func (x *Heartbeat) GetCapabilities() *VehicleCapabilities {
+	if x != nil {
+		return x.Capabilities
+	}
+	return nil
+}
+
+// VehicleCapabilities advertises what commands/features a vehicle supports.
+// This prevents the UI from showing buttons for unsupported actions and allows
+// the gateway to fail-fast on invalid commands.
+//
+// CRITICAL: Without capabilities, teams WILL fork the UI to hide buttons for
+// vehicles that can't stop (fixed-wing), return home (tethered ROV), etc.
+type VehicleCapabilities struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Core commands this vehicle supports.
+	// Values: "goto", "stop", "return_home", "set_mode", "set_speed"
+	// An empty list means observation-only (no commands accepted).
+	SupportedCommands []string `protobuf:"bytes,1,rep,name=supported_commands,json=supportedCommands,proto3" json:"supported_commands,omitempty"`
+	// Extension namespaces this vehicle supports (e.g., ["excavator", "camera"]).
+	// UI uses this to filter ActionPanel buttons for extension commands.
+	SupportedExtensions []string `protobuf:"bytes,2,rep,name=supported_extensions,json=supportedExtensions,proto3" json:"supported_extensions,omitempty"`
+	// Whether vehicle accepts mission waypoint sequences.
+	// If false, only single-point commands (goto) are supported.
+	SupportsMissions bool `protobuf:"varint,3,opt,name=supports_missions,json=supportsMissions,proto3" json:"supports_missions,omitempty"`
+	// Sensors attached to this vehicle.
+	// Used by UI to display camera feeds, visualize sensor FOV, etc.
+	Sensors       []*SensorCapability `protobuf:"bytes,4,rep,name=sensors,proto3" json:"sensors,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VehicleCapabilities) Reset() {
+	*x = VehicleCapabilities{}
+	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VehicleCapabilities) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VehicleCapabilities) ProtoMessage() {}
+
+func (x *VehicleCapabilities) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VehicleCapabilities.ProtoReflect.Descriptor instead.
+func (*VehicleCapabilities) Descriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *VehicleCapabilities) GetSupportedCommands() []string {
+	if x != nil {
+		return x.SupportedCommands
+	}
+	return nil
+}
+
+func (x *VehicleCapabilities) GetSupportedExtensions() []string {
+	if x != nil {
+		return x.SupportedExtensions
+	}
+	return nil
+}
+
+func (x *VehicleCapabilities) GetSupportsMissions() bool {
+	if x != nil {
+		return x.SupportsMissions
+	}
+	return false
+}
+
+func (x *VehicleCapabilities) GetSensors() []*SensorCapability {
+	if x != nil {
+		return x.Sensors
+	}
+	return nil
+}
+
+// SensorCapability describes an attached sensor with stream info.
+// This is a CORE protocol feature (not an extension) because sensors are
+// cross-cutting — nearly every robotics project needs camera/LiDAR support.
+type SensorCapability struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique sensor identifier on this vehicle (e.g., "front_camera", "lidar_1")
+	SensorId string `protobuf:"bytes,1,opt,name=sensor_id,json=sensorId,proto3" json:"sensor_id,omitempty"`
+	// Sensor type for UI rendering hints
+	Type SensorType `protobuf:"varint,2,opt,name=type,proto3,enum=openc2.SensorType" json:"type,omitempty"`
+	// Stream URL if applicable (rtsp://, http://, ws://)
+	// Empty for non-streaming sensors (IMU, GPS)
+	StreamUrl string `protobuf:"bytes,3,opt,name=stream_url,json=streamUrl,proto3" json:"stream_url,omitempty"`
+	// Physical mounting position/orientation (for FOV visualization)
+	Mount *SensorMount `protobuf:"bytes,4,opt,name=mount,proto3" json:"mount,omitempty"`
+	// Type-specific metadata (resolution, FOV, etc.)
+	// Keys are sensor-type-specific; see SensorType documentation.
+	Metadata      map[string]string `protobuf:"bytes,10,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SensorCapability) Reset() {
+	*x = SensorCapability{}
+	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SensorCapability) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SensorCapability) ProtoMessage() {}
+
+func (x *SensorCapability) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SensorCapability.ProtoReflect.Descriptor instead.
+func (*SensorCapability) Descriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SensorCapability) GetSensorId() string {
+	if x != nil {
+		return x.SensorId
+	}
+	return ""
+}
+
+func (x *SensorCapability) GetType() SensorType {
+	if x != nil {
+		return x.Type
+	}
+	return SensorType_SENSOR_UNKNOWN
+}
+
+func (x *SensorCapability) GetStreamUrl() string {
+	if x != nil {
+		return x.StreamUrl
+	}
+	return ""
+}
+
+func (x *SensorCapability) GetMount() *SensorMount {
+	if x != nil {
+		return x.Mount
+	}
+	return nil
+}
+
+func (x *SensorCapability) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// SensorMount describes the physical mounting of a sensor.
+// Used by UI to visualize sensor FOV cones on the map.
+type SensorMount struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Position offset from vehicle origin (meters, body frame)
+	// X = forward, Y = left, Z = up
+	X float32 `protobuf:"fixed32,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y float32 `protobuf:"fixed32,2,opt,name=y,proto3" json:"y,omitempty"`
+	Z float32 `protobuf:"fixed32,3,opt,name=z,proto3" json:"z,omitempty"`
+	// Orientation (Euler angles in degrees, body frame)
+	// Roll/pitch/yaw convention: X-forward, Y-left, Z-up
+	Roll          float32 `protobuf:"fixed32,4,opt,name=roll,proto3" json:"roll,omitempty"`
+	Pitch         float32 `protobuf:"fixed32,5,opt,name=pitch,proto3" json:"pitch,omitempty"`
+	Yaw           float32 `protobuf:"fixed32,6,opt,name=yaw,proto3" json:"yaw,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SensorMount) Reset() {
+	*x = SensorMount{}
+	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SensorMount) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SensorMount) ProtoMessage() {}
+
+func (x *SensorMount) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SensorMount.ProtoReflect.Descriptor instead.
+func (*SensorMount) Descriptor() ([]byte, []int) {
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SensorMount) GetX() float32 {
+	if x != nil {
+		return x.X
+	}
+	return 0
+}
+
+func (x *SensorMount) GetY() float32 {
+	if x != nil {
+		return x.Y
+	}
+	return 0
+}
+
+func (x *SensorMount) GetZ() float32 {
+	if x != nil {
+		return x.Z
+	}
+	return 0
+}
+
+func (x *SensorMount) GetRoll() float32 {
+	if x != nil {
+		return x.Roll
+	}
+	return 0
+}
+
+func (x *SensorMount) GetPitch() float32 {
+	if x != nil {
+		return x.Pitch
+	}
+	return 0
+}
+
+func (x *SensorMount) GetYaw() float32 {
+	if x != nil {
+		return x.Yaw
+	}
+	return 0
+}
+
 // Alert message for warnings, errors, and events
 type Alert struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -783,7 +1125,7 @@ type Alert struct {
 
 func (x *Alert) Reset() {
 	*x = Alert{}
-	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	mi := &file_api_proto_openc2_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -795,7 +1137,7 @@ func (x *Alert) String() string {
 func (*Alert) ProtoMessage() {}
 
 func (x *Alert) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[5]
+	mi := &file_api_proto_openc2_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -808,7 +1150,7 @@ func (x *Alert) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Alert.ProtoReflect.Descriptor instead.
 func (*Alert) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Alert) GetVehicleId() string {
@@ -879,7 +1221,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	mi := &file_api_proto_openc2_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -891,7 +1233,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[6]
+	mi := &file_api_proto_openc2_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -904,7 +1246,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Command) GetCommandId() string {
@@ -1049,7 +1391,7 @@ type ExtensionCommand struct {
 
 func (x *ExtensionCommand) Reset() {
 	*x = ExtensionCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	mi := &file_api_proto_openc2_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1061,7 +1403,7 @@ func (x *ExtensionCommand) String() string {
 func (*ExtensionCommand) ProtoMessage() {}
 
 func (x *ExtensionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[7]
+	mi := &file_api_proto_openc2_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1074,7 +1416,7 @@ func (x *ExtensionCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExtensionCommand.ProtoReflect.Descriptor instead.
 func (*ExtensionCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ExtensionCommand) GetNamespace() string {
@@ -1116,7 +1458,7 @@ type GotoCommand struct {
 
 func (x *GotoCommand) Reset() {
 	*x = GotoCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[8]
+	mi := &file_api_proto_openc2_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1128,7 +1470,7 @@ func (x *GotoCommand) String() string {
 func (*GotoCommand) ProtoMessage() {}
 
 func (x *GotoCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[8]
+	mi := &file_api_proto_openc2_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1141,7 +1483,7 @@ func (x *GotoCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GotoCommand.ProtoReflect.Descriptor instead.
 func (*GotoCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{8}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GotoCommand) GetDestination() *Location {
@@ -1167,7 +1509,7 @@ type StopCommand struct {
 
 func (x *StopCommand) Reset() {
 	*x = StopCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[9]
+	mi := &file_api_proto_openc2_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1179,7 +1521,7 @@ func (x *StopCommand) String() string {
 func (*StopCommand) ProtoMessage() {}
 
 func (x *StopCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[9]
+	mi := &file_api_proto_openc2_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1192,7 +1534,7 @@ func (x *StopCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCommand.ProtoReflect.Descriptor instead.
 func (*StopCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{9}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{12}
 }
 
 // Return to home/launch position
@@ -1204,7 +1546,7 @@ type ReturnHomeCommand struct {
 
 func (x *ReturnHomeCommand) Reset() {
 	*x = ReturnHomeCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[10]
+	mi := &file_api_proto_openc2_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1216,7 +1558,7 @@ func (x *ReturnHomeCommand) String() string {
 func (*ReturnHomeCommand) ProtoMessage() {}
 
 func (x *ReturnHomeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[10]
+	mi := &file_api_proto_openc2_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1229,7 +1571,7 @@ func (x *ReturnHomeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReturnHomeCommand.ProtoReflect.Descriptor instead.
 func (*ReturnHomeCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{10}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{13}
 }
 
 // Set operational mode
@@ -1242,7 +1584,7 @@ type SetModeCommand struct {
 
 func (x *SetModeCommand) Reset() {
 	*x = SetModeCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[11]
+	mi := &file_api_proto_openc2_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1254,7 +1596,7 @@ func (x *SetModeCommand) String() string {
 func (*SetModeCommand) ProtoMessage() {}
 
 func (x *SetModeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[11]
+	mi := &file_api_proto_openc2_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1267,7 +1609,7 @@ func (x *SetModeCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetModeCommand.ProtoReflect.Descriptor instead.
 func (*SetModeCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{11}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SetModeCommand) GetMode() OperationalMode {
@@ -1287,7 +1629,7 @@ type SetSpeedCommand struct {
 
 func (x *SetSpeedCommand) Reset() {
 	*x = SetSpeedCommand{}
-	mi := &file_api_proto_openc2_proto_msgTypes[12]
+	mi := &file_api_proto_openc2_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1299,7 +1641,7 @@ func (x *SetSpeedCommand) String() string {
 func (*SetSpeedCommand) ProtoMessage() {}
 
 func (x *SetSpeedCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[12]
+	mi := &file_api_proto_openc2_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1312,7 +1654,7 @@ func (x *SetSpeedCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetSpeedCommand.ProtoReflect.Descriptor instead.
 func (*SetSpeedCommand) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{12}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SetSpeedCommand) GetSpeedMs() float32 {
@@ -1339,7 +1681,7 @@ type GatewayMessage struct {
 
 func (x *GatewayMessage) Reset() {
 	*x = GatewayMessage{}
-	mi := &file_api_proto_openc2_proto_msgTypes[13]
+	mi := &file_api_proto_openc2_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1351,7 +1693,7 @@ func (x *GatewayMessage) String() string {
 func (*GatewayMessage) ProtoMessage() {}
 
 func (x *GatewayMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[13]
+	mi := &file_api_proto_openc2_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1364,7 +1706,7 @@ func (x *GatewayMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayMessage.ProtoReflect.Descriptor instead.
 func (*GatewayMessage) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{13}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GatewayMessage) GetPayload() isGatewayMessage_Payload {
@@ -1439,7 +1781,7 @@ type GatewayHeartbeat struct {
 
 func (x *GatewayHeartbeat) Reset() {
 	*x = GatewayHeartbeat{}
-	mi := &file_api_proto_openc2_proto_msgTypes[14]
+	mi := &file_api_proto_openc2_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1793,7 @@ func (x *GatewayHeartbeat) String() string {
 func (*GatewayHeartbeat) ProtoMessage() {}
 
 func (x *GatewayHeartbeat) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[14]
+	mi := &file_api_proto_openc2_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1806,7 @@ func (x *GatewayHeartbeat) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GatewayHeartbeat.ProtoReflect.Descriptor instead.
 func (*GatewayHeartbeat) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{14}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GatewayHeartbeat) GetTimestampMs() int64 {
@@ -1508,7 +1850,7 @@ type CommandAck struct {
 
 func (x *CommandAck) Reset() {
 	*x = CommandAck{}
-	mi := &file_api_proto_openc2_proto_msgTypes[15]
+	mi := &file_api_proto_openc2_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1520,7 +1862,7 @@ func (x *CommandAck) String() string {
 func (*CommandAck) ProtoMessage() {}
 
 func (x *CommandAck) ProtoReflect() protoreflect.Message {
-	mi := &file_api_proto_openc2_proto_msgTypes[15]
+	mi := &file_api_proto_openc2_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1533,7 +1875,7 @@ func (x *CommandAck) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandAck.ProtoReflect.Descriptor instead.
 func (*CommandAck) Descriptor() ([]byte, []int) {
-	return file_api_proto_openc2_proto_rawDescGZIP(), []int{15}
+	return file_api_proto_openc2_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *CommandAck) GetCommandId() string {
@@ -1614,13 +1956,37 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\bLocation\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\x12$\n" +
-	"\x0ealtitude_msl_m\x18\x03 \x01(\x02R\faltitudeMslM\"\x99\x01\n" +
+	"\x0ealtitude_msl_m\x18\x03 \x01(\x02R\faltitudeMslM\"\xda\x01\n" +
 	"\tHeartbeat\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12!\n" +
 	"\ftimestamp_ms\x18\x02 \x01(\x03R\vtimestampMs\x12-\n" +
 	"\x06status\x18\x03 \x01(\x0e2\x15.openc2.VehicleStatusR\x06status\x12\x1b\n" +
-	"\tuptime_ms\x18\x04 \x01(\x03R\buptimeMs\"\xd8\x01\n" +
+	"\tuptime_ms\x18\x04 \x01(\x03R\buptimeMs\x12?\n" +
+	"\fcapabilities\x18\x05 \x01(\v2\x1b.openc2.VehicleCapabilitiesR\fcapabilities\"\xd8\x01\n" +
+	"\x13VehicleCapabilities\x12-\n" +
+	"\x12supported_commands\x18\x01 \x03(\tR\x11supportedCommands\x121\n" +
+	"\x14supported_extensions\x18\x02 \x03(\tR\x13supportedExtensions\x12+\n" +
+	"\x11supports_missions\x18\x03 \x01(\bR\x10supportsMissions\x122\n" +
+	"\asensors\x18\x04 \x03(\v2\x18.openc2.SensorCapabilityR\asensors\"\xa2\x02\n" +
+	"\x10SensorCapability\x12\x1b\n" +
+	"\tsensor_id\x18\x01 \x01(\tR\bsensorId\x12&\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x12.openc2.SensorTypeR\x04type\x12\x1d\n" +
+	"\n" +
+	"stream_url\x18\x03 \x01(\tR\tstreamUrl\x12)\n" +
+	"\x05mount\x18\x04 \x01(\v2\x13.openc2.SensorMountR\x05mount\x12B\n" +
+	"\bmetadata\x18\n" +
+	" \x03(\v2&.openc2.SensorCapability.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"s\n" +
+	"\vSensorMount\x12\f\n" +
+	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
+	"\x01y\x18\x02 \x01(\x02R\x01y\x12\f\n" +
+	"\x01z\x18\x03 \x01(\x02R\x01z\x12\x12\n" +
+	"\x04roll\x18\x04 \x01(\x02R\x04roll\x12\x14\n" +
+	"\x05pitch\x18\x05 \x01(\x02R\x05pitch\x12\x10\n" +
+	"\x03yaw\x18\x06 \x01(\x02R\x03yaw\"\xd8\x01\n" +
 	"\x05Alert\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12!\n" +
@@ -1686,7 +2052,21 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\n" +
 	"ENV_GROUND\x10\x02\x12\x0f\n" +
 	"\vENV_SURFACE\x10\x03\x12\x12\n" +
-	"\x0eENV_SUBSURFACE\x10\x04*c\n" +
+	"\x0eENV_SUBSURFACE\x10\x04*\xd9\x01\n" +
+	"\n" +
+	"SensorType\x12\x12\n" +
+	"\x0eSENSOR_UNKNOWN\x10\x00\x12\x15\n" +
+	"\x11SENSOR_CAMERA_RGB\x10\x01\x12\x19\n" +
+	"\x15SENSOR_CAMERA_THERMAL\x10\x02\x12\x17\n" +
+	"\x13SENSOR_CAMERA_DEPTH\x10\x03\x12\x13\n" +
+	"\x0fSENSOR_LIDAR_2D\x10\x04\x12\x13\n" +
+	"\x0fSENSOR_LIDAR_3D\x10\x05\x12\x10\n" +
+	"\fSENSOR_SONAR\x10\x06\x12\x10\n" +
+	"\fSENSOR_RADAR\x10\a\x12\x0e\n" +
+	"\n" +
+	"SENSOR_IMU\x10\b\x12\x0e\n" +
+	"\n" +
+	"SENSOR_GPS\x10\t*c\n" +
 	"\rAlertSeverity\x12\x11\n" +
 	"\rSEVERITY_INFO\x10\x00\x12\x14\n" +
 	"\x10SEVERITY_WARNING\x10\x01\x12\x12\n" +
@@ -1715,61 +2095,71 @@ func file_api_proto_openc2_proto_rawDescGZIP() []byte {
 	return file_api_proto_openc2_proto_rawDescData
 }
 
-var file_api_proto_openc2_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_api_proto_openc2_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_api_proto_openc2_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_api_proto_openc2_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_api_proto_openc2_proto_goTypes = []any{
-	(VehicleStatus)(0),        // 0: openc2.VehicleStatus
-	(VehicleEnvironment)(0),   // 1: openc2.VehicleEnvironment
-	(AlertSeverity)(0),        // 2: openc2.AlertSeverity
-	(OperationalMode)(0),      // 3: openc2.OperationalMode
-	(AckStatus)(0),            // 4: openc2.AckStatus
-	(*VehicleMessage)(nil),    // 5: openc2.VehicleMessage
-	(*VehicleTelemetry)(nil),  // 6: openc2.VehicleTelemetry
-	(*ExtensionData)(nil),     // 7: openc2.ExtensionData
-	(*Location)(nil),          // 8: openc2.Location
-	(*Heartbeat)(nil),         // 9: openc2.Heartbeat
-	(*Alert)(nil),             // 10: openc2.Alert
-	(*Command)(nil),           // 11: openc2.Command
-	(*ExtensionCommand)(nil),  // 12: openc2.ExtensionCommand
-	(*GotoCommand)(nil),       // 13: openc2.GotoCommand
-	(*StopCommand)(nil),       // 14: openc2.StopCommand
-	(*ReturnHomeCommand)(nil), // 15: openc2.ReturnHomeCommand
-	(*SetModeCommand)(nil),    // 16: openc2.SetModeCommand
-	(*SetSpeedCommand)(nil),   // 17: openc2.SetSpeedCommand
-	(*GatewayMessage)(nil),    // 18: openc2.GatewayMessage
-	(*GatewayHeartbeat)(nil),  // 19: openc2.GatewayHeartbeat
-	(*CommandAck)(nil),        // 20: openc2.CommandAck
-	nil,                       // 21: openc2.VehicleTelemetry.ExtensionsEntry
+	(VehicleStatus)(0),          // 0: openc2.VehicleStatus
+	(VehicleEnvironment)(0),     // 1: openc2.VehicleEnvironment
+	(SensorType)(0),             // 2: openc2.SensorType
+	(AlertSeverity)(0),          // 3: openc2.AlertSeverity
+	(OperationalMode)(0),        // 4: openc2.OperationalMode
+	(AckStatus)(0),              // 5: openc2.AckStatus
+	(*VehicleMessage)(nil),      // 6: openc2.VehicleMessage
+	(*VehicleTelemetry)(nil),    // 7: openc2.VehicleTelemetry
+	(*ExtensionData)(nil),       // 8: openc2.ExtensionData
+	(*Location)(nil),            // 9: openc2.Location
+	(*Heartbeat)(nil),           // 10: openc2.Heartbeat
+	(*VehicleCapabilities)(nil), // 11: openc2.VehicleCapabilities
+	(*SensorCapability)(nil),    // 12: openc2.SensorCapability
+	(*SensorMount)(nil),         // 13: openc2.SensorMount
+	(*Alert)(nil),               // 14: openc2.Alert
+	(*Command)(nil),             // 15: openc2.Command
+	(*ExtensionCommand)(nil),    // 16: openc2.ExtensionCommand
+	(*GotoCommand)(nil),         // 17: openc2.GotoCommand
+	(*StopCommand)(nil),         // 18: openc2.StopCommand
+	(*ReturnHomeCommand)(nil),   // 19: openc2.ReturnHomeCommand
+	(*SetModeCommand)(nil),      // 20: openc2.SetModeCommand
+	(*SetSpeedCommand)(nil),     // 21: openc2.SetSpeedCommand
+	(*GatewayMessage)(nil),      // 22: openc2.GatewayMessage
+	(*GatewayHeartbeat)(nil),    // 23: openc2.GatewayHeartbeat
+	(*CommandAck)(nil),          // 24: openc2.CommandAck
+	nil,                         // 25: openc2.VehicleTelemetry.ExtensionsEntry
+	nil,                         // 26: openc2.SensorCapability.MetadataEntry
 }
 var file_api_proto_openc2_proto_depIdxs = []int32{
-	6,  // 0: openc2.VehicleMessage.telemetry:type_name -> openc2.VehicleTelemetry
-	9,  // 1: openc2.VehicleMessage.heartbeat:type_name -> openc2.Heartbeat
-	10, // 2: openc2.VehicleMessage.alert:type_name -> openc2.Alert
-	20, // 3: openc2.VehicleMessage.command_ack:type_name -> openc2.CommandAck
-	8,  // 4: openc2.VehicleTelemetry.location:type_name -> openc2.Location
+	7,  // 0: openc2.VehicleMessage.telemetry:type_name -> openc2.VehicleTelemetry
+	10, // 1: openc2.VehicleMessage.heartbeat:type_name -> openc2.Heartbeat
+	14, // 2: openc2.VehicleMessage.alert:type_name -> openc2.Alert
+	24, // 3: openc2.VehicleMessage.command_ack:type_name -> openc2.CommandAck
+	9,  // 4: openc2.VehicleTelemetry.location:type_name -> openc2.Location
 	0,  // 5: openc2.VehicleTelemetry.status:type_name -> openc2.VehicleStatus
 	1,  // 6: openc2.VehicleTelemetry.environment:type_name -> openc2.VehicleEnvironment
-	21, // 7: openc2.VehicleTelemetry.extensions:type_name -> openc2.VehicleTelemetry.ExtensionsEntry
+	25, // 7: openc2.VehicleTelemetry.extensions:type_name -> openc2.VehicleTelemetry.ExtensionsEntry
 	0,  // 8: openc2.Heartbeat.status:type_name -> openc2.VehicleStatus
-	2,  // 9: openc2.Alert.severity:type_name -> openc2.AlertSeverity
-	8,  // 10: openc2.Alert.location:type_name -> openc2.Location
-	13, // 11: openc2.Command.goto:type_name -> openc2.GotoCommand
-	14, // 12: openc2.Command.stop:type_name -> openc2.StopCommand
-	15, // 13: openc2.Command.return_home:type_name -> openc2.ReturnHomeCommand
-	16, // 14: openc2.Command.set_mode:type_name -> openc2.SetModeCommand
-	17, // 15: openc2.Command.set_speed:type_name -> openc2.SetSpeedCommand
-	12, // 16: openc2.Command.extension:type_name -> openc2.ExtensionCommand
-	8,  // 17: openc2.GotoCommand.destination:type_name -> openc2.Location
-	3,  // 18: openc2.SetModeCommand.mode:type_name -> openc2.OperationalMode
-	11, // 19: openc2.GatewayMessage.command:type_name -> openc2.Command
-	19, // 20: openc2.GatewayMessage.heartbeat:type_name -> openc2.GatewayHeartbeat
-	4,  // 21: openc2.CommandAck.status:type_name -> openc2.AckStatus
-	7,  // 22: openc2.VehicleTelemetry.ExtensionsEntry.value:type_name -> openc2.ExtensionData
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	11, // 9: openc2.Heartbeat.capabilities:type_name -> openc2.VehicleCapabilities
+	12, // 10: openc2.VehicleCapabilities.sensors:type_name -> openc2.SensorCapability
+	2,  // 11: openc2.SensorCapability.type:type_name -> openc2.SensorType
+	13, // 12: openc2.SensorCapability.mount:type_name -> openc2.SensorMount
+	26, // 13: openc2.SensorCapability.metadata:type_name -> openc2.SensorCapability.MetadataEntry
+	3,  // 14: openc2.Alert.severity:type_name -> openc2.AlertSeverity
+	9,  // 15: openc2.Alert.location:type_name -> openc2.Location
+	17, // 16: openc2.Command.goto:type_name -> openc2.GotoCommand
+	18, // 17: openc2.Command.stop:type_name -> openc2.StopCommand
+	19, // 18: openc2.Command.return_home:type_name -> openc2.ReturnHomeCommand
+	20, // 19: openc2.Command.set_mode:type_name -> openc2.SetModeCommand
+	21, // 20: openc2.Command.set_speed:type_name -> openc2.SetSpeedCommand
+	16, // 21: openc2.Command.extension:type_name -> openc2.ExtensionCommand
+	9,  // 22: openc2.GotoCommand.destination:type_name -> openc2.Location
+	4,  // 23: openc2.SetModeCommand.mode:type_name -> openc2.OperationalMode
+	15, // 24: openc2.GatewayMessage.command:type_name -> openc2.Command
+	23, // 25: openc2.GatewayMessage.heartbeat:type_name -> openc2.GatewayHeartbeat
+	5,  // 26: openc2.CommandAck.status:type_name -> openc2.AckStatus
+	8,  // 27: openc2.VehicleTelemetry.ExtensionsEntry.value:type_name -> openc2.ExtensionData
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_api_proto_openc2_proto_init() }
@@ -1784,7 +2174,7 @@ func file_api_proto_openc2_proto_init() {
 		(*VehicleMessage_CommandAck)(nil),
 	}
 	file_api_proto_openc2_proto_msgTypes[1].OneofWrappers = []any{}
-	file_api_proto_openc2_proto_msgTypes[6].OneofWrappers = []any{
+	file_api_proto_openc2_proto_msgTypes[9].OneofWrappers = []any{
 		(*Command_Goto)(nil),
 		(*Command_Stop)(nil),
 		(*Command_ReturnHome)(nil),
@@ -1792,7 +2182,7 @@ func file_api_proto_openc2_proto_init() {
 		(*Command_SetSpeed)(nil),
 		(*Command_Extension)(nil),
 	}
-	file_api_proto_openc2_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_proto_openc2_proto_msgTypes[16].OneofWrappers = []any{
 		(*GatewayMessage_Command)(nil),
 		(*GatewayMessage_Heartbeat)(nil),
 	}
@@ -1801,8 +2191,8 @@ func file_api_proto_openc2_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_openc2_proto_rawDesc), len(file_api_proto_openc2_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   17,
+			NumEnums:      6,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

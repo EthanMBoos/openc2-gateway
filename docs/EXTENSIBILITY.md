@@ -1153,11 +1153,13 @@ The following should be **core protocol features** with well-defined semantics.
 
 ---
 
-### 1. Vehicle Capabilities (Priority: HIGH)
+### 1. Vehicle Capabilities (Priority: HIGH) — ✅ IMPLEMENTED
 
-**The Problem:**
+> **STATUS**: Implemented in `openc2.proto`, gateway, and testsender as of March 2026.
 
-Currently, all vehicles implicitly accept all core commands (`goto`, `stop`, `return_home`, etc.). This fails for:
+**The Problem (Solved):**
+
+Previously, all vehicles implicitly accepted all core commands (`goto`, `stop`, `return_home`, etc.). This failed for:
 
 | Vehicle Type | Issue |
 |--------------|-------|
@@ -1166,40 +1168,26 @@ Currently, all vehicles implicitly accept all core commands (`goto`, `stop`, `re
 | Tethered ROV | Cannot `return_home` (would destroy tether) |
 | Observation-only | No commands at all (telemetry publisher only) |
 
-**Without capabilities, teams will:**
-- Fork the UI to hide buttons for specific vehicle types
-- Add custom validation that duplicates gateway logic
-- Build vehicle-type detection heuristics that break
+**Solution:**
 
-**Proto Addition:**
+Capabilities are now advertised via `Heartbeat` messages. See `api/proto/openc2.proto` for the full schema:
 
-```protobuf
-// Add to Heartbeat message
-message Heartbeat {
-  string vehicle_id = 1;
-  int64 timestamp_ms = 2;
-  VehicleStatus status = 3;
-  int64 uptime_ms = 4;
-  
-  // NEW: Capability advertisement
-  VehicleCapabilities capabilities = 5;
-}
+- `VehicleCapabilities` — lists supported commands, extensions, mission support, and sensors
+- `SensorCapability` — describes attached sensors with stream URLs and mounting info
+- Gateway validates commands against capabilities (fail-fast with `COMMAND_NOT_SUPPORTED` error)
+- Capabilities included in `welcome` message fleet snapshot
 
-message VehicleCapabilities {
-  // Core commands this vehicle supports
-  // Values: "goto", "stop", "return_home", "set_mode", "set_speed"
-  repeated string supported_commands = 1;
-  
-  // Extension namespaces this vehicle supports
-  // Values: "excavator", "camera", etc.
-  repeated string supported_extensions = 2;
-  
-  // Whether vehicle accepts mission plans (see Mission Abstraction below)
-  bool supports_missions = 3;
-  
-  // Sensor payloads (see Sensor Registry below)
-  repeated SensorCapability sensors = 4;
-}
+**Testing:**
+
+```bash
+# Full capability vehicle (default)
+go run ./cmd/testsender -vid ugv-husky-07
+
+# Fixed-wing (no stop command)
+go run ./cmd/testsender -vid fixed-wing-01 -env air -caps no-stop
+
+# Observation-only sensor (no commands accepted)
+go run ./cmd/testsender -vid sensor-01 -caps none
 ```
 
 **UI Impact:**
@@ -1229,9 +1217,11 @@ function ActionPanel({ vehicle }: Props) {
 
 ---
 
-### 2. Sensor Registry (Priority: MEDIUM)
+### 2. Sensor Registry (Priority: MEDIUM) — ✅ IMPLEMENTED
 
-**The Problem:**
+> **STATUS**: Implemented as part of `VehicleCapabilities.sensors` in `openc2.proto` as of March 2026.
+
+**The Problem (Solved):**
 
 Cameras, LiDAR, sonar, and thermal sensors appear across nearly every robotics project. Treating them as extensions means:
 
@@ -1240,7 +1230,9 @@ Cameras, LiDAR, sonar, and thermal sensors appear across nearly every robotics p
 - No standard way to display sensor feeds in UI
 - Mounting transforms (where sensor points) are either missing or incompatible
 
-**Proto Addition:**
+**Solution:**
+
+Sensors are now a first-class field in `VehicleCapabilities`. See `api/proto/openc2.proto` for the full schema:
 
 ```protobuf
 message SensorCapability {
@@ -1428,15 +1420,15 @@ Most OpenC2 deployments are outdoor with GPS. The frame issue primarily affects 
 
 ### Implementation Priority
 
-| Feature | Priority | Effort | Risk if Deferred |
-|---------|----------|--------|------------------|
-| Vehicle Capabilities | **HIGH** | 3-4 days | **High** — teams will fork UI to hide buttons |
-| Adapter Layer | **HIGH** | 1 week | **High** — MAVLink/ROS teams can't adopt |
-| Sensor Registry | MEDIUM | 2-3 days | Medium — common but self-contained |
-| Mission Abstraction | MEDIUM | 1 week | Medium — teams build incompatible planners |
-| Coordinate Frames | LOW | 1 day | Low — outdoor-only MVP is acceptable |
+| Feature | Priority | Effort | Status |
+|---------|----------|--------|--------|
+| Vehicle Capabilities | **HIGH** | 3-4 days | ✅ **DONE** — Proto, gateway, and testsender implemented |
+| Adapter Layer | **HIGH** | 1 week | Teams own translation (Integration Contract) |
+| Sensor Registry | MEDIUM | 2-3 days | ✅ **DONE** — Part of VehicleCapabilities |
+| Mission Abstraction | MEDIUM | 1 week | Not started |
+| Coordinate Frames | LOW | 1 day | Not started |
 
-**Recommendation:** Ship capabilities and adapter layer before expanding team adoption. These are the two features most likely to cause forks.
+**Recommendation:** Capabilities and sensor registry are shipped. The Integration Contract handles the adapter layer — teams own their translation code.
 
 ---
 

@@ -131,15 +131,22 @@ func HeartbeatToFrame(msg *pb.Heartbeat) (*Frame, error) {
 		return nil, errors.New("missing vehicle_id")
 	}
 
+	payload := HeartbeatPayload{
+		UptimeMs: msg.UptimeMs,
+	}
+
+	// Translate capabilities if present
+	if msg.Capabilities != nil {
+		payload.Capabilities = capabilitiesToJSON(msg.Capabilities)
+	}
+
 	return &Frame{
 		V:    ProtocolVersion,
 		Type: TypeHeartbeat,
 		Vid:  msg.VehicleId,
 		Ts:   msg.TimestampMs,
 		Gts:  nowMs(),
-		Data: HeartbeatPayload{
-			UptimeMs: msg.UptimeMs,
-		},
+		Data: payload,
 	}, nil
 }
 
@@ -405,5 +412,90 @@ func statusToString(s pb.VehicleStatus) string {
 		return StatusStandby
 	default:
 		return StatusOffline
+	}
+}
+
+// ----------------------------------------------------------------------------
+// Capability Conversions
+// ----------------------------------------------------------------------------
+
+// capabilitiesToJSON converts protobuf VehicleCapabilities to JSON struct.
+func capabilitiesToJSON(caps *pb.VehicleCapabilities) *VehicleCapabilities {
+	if caps == nil {
+		return nil
+	}
+
+	result := &VehicleCapabilities{
+		SupportedCommands:   caps.SupportedCommands,
+		SupportedExtensions: caps.SupportedExtensions,
+		SupportsMissions:    caps.SupportsMissions,
+	}
+
+	// Ensure slices are non-nil for JSON serialization ([] not null)
+	if result.SupportedCommands == nil {
+		result.SupportedCommands = []string{}
+	}
+	if result.SupportedExtensions == nil {
+		result.SupportedExtensions = []string{}
+	}
+
+	// Translate sensors
+	if len(caps.Sensors) > 0 {
+		result.Sensors = make([]SensorCapability, 0, len(caps.Sensors))
+		for _, s := range caps.Sensors {
+			result.Sensors = append(result.Sensors, sensorToJSON(s))
+		}
+	}
+
+	return result
+}
+
+// sensorToJSON converts a protobuf SensorCapability to JSON struct.
+func sensorToJSON(s *pb.SensorCapability) SensorCapability {
+	sensor := SensorCapability{
+		SensorID:  s.SensorId,
+		Type:      sensorTypeToString(s.Type),
+		StreamURL: s.StreamUrl,
+		Metadata:  s.Metadata,
+	}
+
+	// Translate mount if present
+	if s.Mount != nil {
+		sensor.Mount = &SensorMount{
+			X:     float64(s.Mount.X),
+			Y:     float64(s.Mount.Y),
+			Z:     float64(s.Mount.Z),
+			Roll:  float64(s.Mount.Roll),
+			Pitch: float64(s.Mount.Pitch),
+			Yaw:   float64(s.Mount.Yaw),
+		}
+	}
+
+	return sensor
+}
+
+// sensorTypeToString converts protobuf SensorType to JSON string.
+func sensorTypeToString(t pb.SensorType) string {
+	switch t {
+	case pb.SensorType_SENSOR_CAMERA_RGB:
+		return SensorCameraRGB
+	case pb.SensorType_SENSOR_CAMERA_THERMAL:
+		return SensorCameraThermal
+	case pb.SensorType_SENSOR_CAMERA_DEPTH:
+		return SensorCameraDepth
+	case pb.SensorType_SENSOR_LIDAR_2D:
+		return SensorLidar2D
+	case pb.SensorType_SENSOR_LIDAR_3D:
+		return SensorLidar3D
+	case pb.SensorType_SENSOR_SONAR:
+		return SensorSonar
+	case pb.SensorType_SENSOR_RADAR:
+		return SensorRadar
+	case pb.SensorType_SENSOR_IMU:
+		return SensorIMU
+	case pb.SensorType_SENSOR_GPS:
+		return SensorGPS
+	default:
+		return SensorUnknown
 	}
 }

@@ -38,12 +38,13 @@ const (
 
 // Vehicle represents a tracked vehicle in the registry.
 type Vehicle struct {
-	ID          string
-	Name        string    // Display name (from config or derived from ID)
-	Environment string    // air, ground, surface, subsurface
-	Status      Status    // Current operational status
-	LastSeen    time.Time // Last telemetry received
-	FirstSeen   time.Time // When vehicle was first discovered
+	ID           string
+	Name         string                        // Display name (from config or derived from ID)
+	Environment  string                        // air, ground, surface, subsurface
+	Status       Status                        // Current operational status
+	LastSeen     time.Time                     // Last telemetry received
+	FirstSeen    time.Time                     // When vehicle was first discovered
+	Capabilities *protocol.VehicleCapabilities // Advertised capabilities (from Heartbeat)
 }
 
 // Config holds registry configuration.
@@ -247,11 +248,12 @@ func (r *Registry) GetFleetSummary() []protocol.VehicleSummary {
 	result := make([]protocol.VehicleSummary, 0, len(r.vehicles))
 	for _, v := range r.vehicles {
 		result = append(result, protocol.VehicleSummary{
-			ID:          v.ID,
-			Name:        v.Name,
-			Status:      string(v.Status),
-			Environment: v.Environment,
-			LastSeen:    v.LastSeen.UnixMilli(),
+			ID:           v.ID,
+			Name:         v.Name,
+			Status:       string(v.Status),
+			Environment:  v.Environment,
+			LastSeen:     v.LastSeen.UnixMilli(),
+			Capabilities: v.Capabilities,
 		})
 	}
 	return result
@@ -290,6 +292,31 @@ func (r *Registry) SetName(vehicleID, name string) bool {
 	}
 	v.Name = name
 	return true
+}
+
+// UpdateCapabilities updates the advertised capabilities for a vehicle.
+// Called when processing Heartbeat messages.
+// Returns false if vehicle doesn't exist.
+func (r *Registry) UpdateCapabilities(vehicleID string, caps *protocol.VehicleCapabilities) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	v, exists := r.vehicles[vehicleID]
+	if !exists {
+		return false
+	}
+	v.Capabilities = caps
+	return true
+}
+
+// GetCapabilities returns the capabilities for a vehicle, or nil if unknown.
+func (r *Registry) GetCapabilities(vehicleID string) *protocol.VehicleCapabilities {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	v, exists := r.vehicles[vehicleID]
+	if !exists {
+		return nil
+	}
+	return v.Capabilities
 }
 
 // Remove deletes a vehicle from the registry.

@@ -147,6 +147,93 @@ message Heartbeat {
   int64 timestamp_ms = 2;
   VehicleStatus status = 3;
   int64 uptime_ms = 4;
+  
+  // Capability advertisement - tells gateway/UI what this vehicle supports.
+  // Sent on every heartbeat so capabilities can change at runtime
+  // (e.g., sensor added, extension module loaded).
+  VehicleCapabilities capabilities = 5;
+}
+
+// ============================================================================
+// Vehicle Capabilities (advertised via Heartbeat)
+// ============================================================================
+
+// VehicleCapabilities advertises what commands/features a vehicle supports.
+// This prevents the UI from showing buttons for unsupported actions and allows
+// the gateway to fail-fast on invalid commands.
+//
+// CRITICAL: Without capabilities, teams WILL fork the UI to hide buttons for
+// vehicles that can't stop (fixed-wing), return home (tethered ROV), etc.
+message VehicleCapabilities {
+  // Core commands this vehicle supports.
+  // Values: "goto", "stop", "return_home", "set_mode", "set_speed"
+  // An empty list means observation-only (no commands accepted).
+  repeated string supported_commands = 1;
+  
+  // Extension namespaces this vehicle supports (e.g., ["excavator", "camera"]).
+  // UI uses this to filter ActionPanel buttons for extension commands.
+  repeated string supported_extensions = 2;
+  
+  // Whether vehicle accepts mission waypoint sequences.
+  // If false, only single-point commands (goto) are supported.
+  bool supports_missions = 3;
+  
+  // Sensors attached to this vehicle.
+  // Used by UI to display camera feeds, visualize sensor FOV, etc.
+  repeated SensorCapability sensors = 4;
+}
+
+// SensorCapability describes an attached sensor with stream info.
+// This is a CORE protocol feature (not an extension) because sensors are
+// cross-cutting — nearly every robotics project needs camera/LiDAR support.
+message SensorCapability {
+  // Unique sensor identifier on this vehicle (e.g., "front_camera", "lidar_1")
+  string sensor_id = 1;
+  
+  // Sensor type for UI rendering hints
+  SensorType type = 2;
+  
+  // Stream URL if applicable (rtsp://, http://, ws://)
+  // Empty for non-streaming sensors (IMU, GPS)
+  string stream_url = 3;
+  
+  // Physical mounting position/orientation (for FOV visualization)
+  SensorMount mount = 4;
+  
+  // Type-specific metadata (resolution, FOV, etc.)
+  // Keys are sensor-type-specific; see SensorType documentation.
+  map<string, string> metadata = 10;
+}
+
+// SensorType enumerates common sensor categories.
+// UI can use this to select appropriate visualization (video player, point cloud, etc.)
+enum SensorType {
+  SENSOR_UNKNOWN = 0;
+  SENSOR_CAMERA_RGB = 1;
+  SENSOR_CAMERA_THERMAL = 2;
+  SENSOR_CAMERA_DEPTH = 3;
+  SENSOR_LIDAR_2D = 4;
+  SENSOR_LIDAR_3D = 5;
+  SENSOR_SONAR = 6;
+  SENSOR_RADAR = 7;
+  SENSOR_IMU = 8;
+  SENSOR_GPS = 9;
+}
+
+// SensorMount describes the physical mounting of a sensor.
+// Used by UI to visualize sensor FOV cones on the map.
+message SensorMount {
+  // Position offset from vehicle origin (meters, body frame)
+  // X = forward, Y = left, Z = up
+  float x = 1;
+  float y = 2;
+  float z = 3;
+  
+  // Orientation (Euler angles in degrees, body frame)
+  // Roll/pitch/yaw convention: X-forward, Y-left, Z-up
+  float roll = 4;
+  float pitch = 5;
+  float yaw = 6;
 }
 
 // Alert message for warnings, errors, and events

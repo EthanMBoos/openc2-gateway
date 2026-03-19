@@ -135,6 +135,18 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 		}
 	}
 
+	// Validate command against vehicle capabilities (fail-fast)
+	if !r.isCommandSupported(vehicle, actionData.Action) {
+		return RouteResult{
+			Success: false,
+			Frame: protocol.NewCommandErrorFrame(
+				protocol.ErrCommandNotSupported,
+				fmt.Sprintf("vehicle %s does not support command '%s'", frame.Vid, actionData.Action),
+				actionData.CommandID,
+			),
+		}
+	}
+
 	// Check rate limit via tracker
 	trackResult := r.tracker.Track(actionData.CommandID, frame.Vid, actionData.Action)
 	if !trackResult.Accepted {
@@ -286,4 +298,47 @@ func valueOrDefault(v *float64, def float64) float64 {
 		return *v
 	}
 	return def
+}
+
+// coreCommands lists all core protocol commands.
+// If a vehicle has capabilities but no supported_commands list, it's observation-only.
+var coreCommands = []string{"goto", "stop", "return_home", "set_mode", "set_speed"}
+
+// isCommandSupported checks if a vehicle supports a given command action.
+// Returns true if:
+//   - Vehicle has no capabilities advertised (legacy compatibility - allow all)
+//   - Vehicle capabilities include this command in supported_commands
+//   - Command is an extension command and vehicle supports that extension
+func (r *Router) isCommandSupported(vehicle *registry.Vehicle, action string) bool {
+	caps := vehicle.Capabilities
+
+	// No capabilities advertised = legacy vehicle, allow all commands
+	// This maintains backward compatibility with vehicles that don't send capabilities yet.
+	if caps == nil {
+		return true
+	}
+
+	// Check if it's a core command
+	for _, coreCmd := range coreCommands {
+		if action == coreCmd {
+			// Must be in supported_commands
+			for _, supported := range caps.SupportedCommands {
+				if supported == action {
+					return true
+				}
+			}
+			// Core command not supported by this vehicle
+			return false
+		}
+	}
+
+	// Extension command - would need namespace check
+	// For now, allow extension commands if the vehicle supports any extensions
+	// Full extension validation requires the command to include namespace
+	if action == "extension" {
+		return len(caps.SupportedExtensions) > 0
+	}
+
+	// Unknown command type - let buildProtoCommand reject it
+	return true
 }

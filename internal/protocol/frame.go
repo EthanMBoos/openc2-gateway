@@ -13,12 +13,12 @@ package protocol
 // Frame is the envelope for all JSON messages over WebSocket.
 // All messages follow this structure regardless of type.
 type Frame struct {
-	V    int         `json:"v"`              // Protocol version (currently 1)
-	Type string      `json:"type"`           // Message type identifier
-	Vid  string      `json:"vid"`            // Vehicle ID (source or target)
-	Ts   int64       `json:"ts"`             // Vehicle timestamp (UNTRUSTED - display only)
-	Gts  int64       `json:"gts,omitempty"`  // Gateway timestamp (authoritative)
-	Data interface{} `json:"data"`           // Type-specific payload
+	V    int         `json:"v"`             // Protocol version (currently 1)
+	Type string      `json:"type"`          // Message type identifier
+	Vid  string      `json:"vid"`           // Vehicle ID (source or target)
+	Ts   int64       `json:"ts"`            // Vehicle timestamp (UNTRUSTED - display only)
+	Gts  int64       `json:"gts,omitempty"` // Gateway timestamp (authoritative)
+	Data interface{} `json:"data"`          // Type-specific payload
 }
 
 // ProtocolVersion is the current protocol version.
@@ -66,12 +66,12 @@ type Location struct {
 // TelemetryPayload contains position, velocity, and state data.
 type TelemetryPayload struct {
 	Location       Location `json:"location"`
-	Speed          float64  `json:"speed"`                       // Speed in m/s
-	Heading        float64  `json:"heading"`                     // Heading in degrees [0, 360)
-	Environment    string   `json:"environment"`                 // air, ground, surface, subsurface
-	Seq            uint32   `json:"seq"`                         // Monotonic sequence number for ordering
-	BatteryPct     *int     `json:"batteryPct,omitempty"`        // 0-100, nil if unknown
-	SignalStrength *int     `json:"signalStrength,omitempty"`    // 0-5 bars, nil if unknown
+	Speed          float64  `json:"speed"`                    // Speed in m/s
+	Heading        float64  `json:"heading"`                  // Heading in degrees [0, 360)
+	Environment    string   `json:"environment"`              // air, ground, surface, subsurface
+	Seq            uint32   `json:"seq"`                      // Monotonic sequence number for ordering
+	BatteryPct     *int     `json:"batteryPct,omitempty"`     // 0-100, nil if unknown
+	SignalStrength *int     `json:"signalStrength,omitempty"` // 0-5 bars, nil if unknown
 }
 
 // ----------------------------------------------------------------------------
@@ -98,8 +98,62 @@ const (
 
 // HeartbeatPayload contains connection health data.
 type HeartbeatPayload struct {
-	UptimeMs int64 `json:"uptimeMs"` // Vehicle uptime in milliseconds
+	UptimeMs     int64                `json:"uptimeMs"`               // Vehicle uptime in milliseconds
+	Capabilities *VehicleCapabilities `json:"capabilities,omitempty"` // What this vehicle supports
 }
+
+// ----------------------------------------------------------------------------
+// Vehicle Capabilities
+// ----------------------------------------------------------------------------
+
+// VehicleCapabilities advertises what commands/features a vehicle supports.
+// This prevents the UI from showing buttons for unsupported actions.
+type VehicleCapabilities struct {
+	// Core commands this vehicle supports: "goto", "stop", "return_home", "set_mode", "set_speed"
+	SupportedCommands []string `json:"supportedCommands"`
+
+	// Extension namespaces this vehicle supports (e.g., ["excavator", "camera"])
+	SupportedExtensions []string `json:"supportedExtensions"`
+
+	// Whether vehicle accepts mission waypoint sequences
+	SupportsMissions bool `json:"supportsMissions"`
+
+	// Sensors attached to this vehicle
+	Sensors []SensorCapability `json:"sensors,omitempty"`
+}
+
+// SensorCapability describes an attached sensor with stream info.
+type SensorCapability struct {
+	SensorID  string            `json:"sensorId"`            // Unique sensor ID on this vehicle
+	Type      string            `json:"type"`                // camera_rgb, camera_thermal, lidar_3d, etc.
+	StreamURL string            `json:"streamUrl,omitempty"` // rtsp://, http://, ws://
+	Mount     *SensorMount      `json:"mount,omitempty"`     // Physical mounting position
+	Metadata  map[string]string `json:"metadata,omitempty"`  // Type-specific metadata
+}
+
+// SensorMount describes the physical mounting of a sensor.
+type SensorMount struct {
+	X     float64 `json:"x"`     // Position offset in meters (forward)
+	Y     float64 `json:"y"`     // Position offset in meters (left)
+	Z     float64 `json:"z"`     // Position offset in meters (up)
+	Roll  float64 `json:"roll"`  // Euler angle in degrees
+	Pitch float64 `json:"pitch"` // Euler angle in degrees
+	Yaw   float64 `json:"yaw"`   // Euler angle in degrees
+}
+
+// Sensor type values
+const (
+	SensorUnknown       = "unknown"
+	SensorCameraRGB     = "camera_rgb"
+	SensorCameraThermal = "camera_thermal"
+	SensorCameraDepth   = "camera_depth"
+	SensorLidar2D       = "lidar_2d"
+	SensorLidar3D       = "lidar_3d"
+	SensorSonar         = "sonar"
+	SensorRadar         = "radar"
+	SensorIMU           = "imu"
+	SensorGPS           = "gps"
+)
 
 // ----------------------------------------------------------------------------
 // Command Acknowledgment
@@ -107,9 +161,9 @@ type HeartbeatPayload struct {
 
 // CommandAckPayload contains command response data.
 type CommandAckPayload struct {
-	CommandID string  `json:"commandId"`          // ID of the acknowledged command
-	Status    string  `json:"status"`             // accepted, rejected, completed, failed
-	Message   *string `json:"message,omitempty"`  // Human-readable status message
+	CommandID string  `json:"commandId"`         // ID of the acknowledged command
+	Status    string  `json:"status"`            // accepted, rejected, completed, failed
+	Message   *string `json:"message,omitempty"` // Human-readable status message
 }
 
 // Ack status values
@@ -154,11 +208,12 @@ type FleetStatusPayload struct {
 
 // VehicleSummary is a brief vehicle overview for fleet status.
 type VehicleSummary struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Status      string `json:"status"`      // online, offline, standby
-	Environment string `json:"environment"` // air, ground, surface, subsurface
-	LastSeen    int64  `json:"lastSeen"`    // Unix timestamp (ms)
+	ID           string               `json:"id"`
+	Name         string               `json:"name"`
+	Status       string               `json:"status"`                 // online, offline, standby
+	Environment  string               `json:"environment"`            // air, ground, surface, subsurface
+	LastSeen     int64                `json:"lastSeen"`               // Unix timestamp (ms)
+	Capabilities *VehicleCapabilities `json:"capabilities,omitempty"` // What this vehicle supports
 }
 
 // ----------------------------------------------------------------------------
@@ -267,6 +322,7 @@ const (
 	ErrRateLimited                = "RATE_LIMITED" // Per-vehicle limit (10/sec). Global limit not implemented — 1-2 operators won't saturate multicast. Add if multi-operator deployments need it.
 	ErrProtocolVersionUnsupported = "PROTOCOL_VERSION_UNSUPPORTED"
 	ErrCommandSendFailed          = "COMMAND_SEND_FAILED"
+	ErrCommandNotSupported        = "COMMAND_NOT_SUPPORTED" // Vehicle doesn't support this command (per capabilities)
 )
 
 // Environment values
