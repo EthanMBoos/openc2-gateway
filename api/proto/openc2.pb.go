@@ -147,10 +147,9 @@ const (
 	SensorType_SENSOR_CAMERA_DEPTH   SensorType = 3
 	SensorType_SENSOR_LIDAR_2D       SensorType = 4
 	SensorType_SENSOR_LIDAR_3D       SensorType = 5
-	SensorType_SENSOR_SONAR          SensorType = 6
-	SensorType_SENSOR_RADAR          SensorType = 7
-	SensorType_SENSOR_IMU            SensorType = 8
-	SensorType_SENSOR_GPS            SensorType = 9
+	SensorType_SENSOR_RADAR          SensorType = 6
+	SensorType_SENSOR_IMU            SensorType = 7
+	SensorType_SENSOR_GPS            SensorType = 8
 )
 
 // Enum value maps for SensorType.
@@ -162,10 +161,9 @@ var (
 		3: "SENSOR_CAMERA_DEPTH",
 		4: "SENSOR_LIDAR_2D",
 		5: "SENSOR_LIDAR_3D",
-		6: "SENSOR_SONAR",
-		7: "SENSOR_RADAR",
-		8: "SENSOR_IMU",
-		9: "SENSOR_GPS",
+		6: "SENSOR_RADAR",
+		7: "SENSOR_IMU",
+		8: "SENSOR_GPS",
 	}
 	SensorType_value = map[string]int32{
 		"SENSOR_UNKNOWN":        0,
@@ -174,10 +172,9 @@ var (
 		"SENSOR_CAMERA_DEPTH":   3,
 		"SENSOR_LIDAR_2D":       4,
 		"SENSOR_LIDAR_3D":       5,
-		"SENSOR_SONAR":          6,
-		"SENSOR_RADAR":          7,
-		"SENSOR_IMU":            8,
-		"SENSOR_GPS":            9,
+		"SENSOR_RADAR":          6,
+		"SENSOR_IMU":            7,
+		"SENSOR_GPS":            8,
 	}
 )
 
@@ -520,6 +517,19 @@ type VehicleTelemetry struct {
 	SignalStrength *uint32 `protobuf:"varint,9,opt,name=signal_strength,json=signalStrength,proto3,oneof" json:"signal_strength,omitempty"`
 	// Battery percentage (0-100, absence means unknown)
 	BatteryPct *uint32 `protobuf:"varint,10,opt,name=battery_pct,json=batteryPct,proto3,oneof" json:"battery_pct,omitempty"`
+	// ── Extension Support ──
+	// See docs/EXTENSIBILITY.md for full extension architecture.
+	//
+	// IMPORTANT: There are TWO extension-related concepts:
+	//
+	//  1. extensions (this field) = LIVE STATE (10-100Hz telemetry)
+	//     → "My battery voltage is 25.6V, drive mode is AUTONOMOUS"
+	//     → Changes constantly, sent on every telemetry frame
+	//
+	//  2. VehicleCapabilities.extensions (in Heartbeat) = VALID COMMANDS (1Hz)
+	//     → "I can do setDriveMode and triggerEStop"
+	//     → Tells UI which buttons to show
+	//
 	// List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
 	// Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
 	// Vehicles SHOULD populate this on every telemetry frame.
@@ -781,7 +791,13 @@ type Heartbeat struct {
 	// Capability advertisement - tells gateway/UI what this vehicle supports.
 	// Sent on every heartbeat so capabilities can change at runtime
 	// (e.g., sensor added, extension module loaded).
-	Capabilities  *VehicleCapabilities `protobuf:"bytes,5,opt,name=capabilities,proto3" json:"capabilities,omitempty"`
+	Capabilities *VehicleCapabilities `protobuf:"bytes,5,opt,name=capabilities,proto3" json:"capabilities,omitempty"`
+	// Vehicle type identifier for UI auto-matching to Vehicle profiles.
+	// Example: "clearpath-husky-a200", "skydio-x2d", "bluerov2"
+	// UI matches this against Vehicle.name or Vehicle.tags[] to automatically
+	// link VehicleInstance to the correct Vehicle definition (static specs).
+	// If no match found, UI can prompt operator or use a generic profile.
+	VehicleType   string `protobuf:"bytes,6,opt,name=vehicle_type,json=vehicleType,proto3" json:"vehicle_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -851,9 +867,31 @@ func (x *Heartbeat) GetCapabilities() *VehicleCapabilities {
 	return nil
 }
 
+func (x *Heartbeat) GetVehicleType() string {
+	if x != nil {
+		return x.VehicleType
+	}
+	return ""
+}
+
 // VehicleCapabilities advertises what commands/features a vehicle supports.
 // This prevents the UI from showing buttons for unsupported actions and allows
 // the gateway to fail-fast on invalid commands.
+//
+// DESIGN: Sent on EVERY heartbeat (1Hz), not just once.
+//
+// Why repeat on every heartbeat?
+// - Stateless robustness: Gateway restart → learns caps from next heartbeat
+// - UDP is unreliable: Lost packet recovers in 1 second
+// - Capabilities CAN change at runtime:
+//   - Sensor failure → remove from sensors[]
+//   - Battery critical → remove "goto" from supported_commands (can only RTL)
+//   - E-Stop engaged → remove movement commands temporarily
+//   - Hot-plugged hardware → add new sensor
+//   - Firmware OTA update → new commands become available
+//
+// Industry precedent: MAVLink HEARTBEAT, ROS2 DDS, DIS entity state all
+// advertise capabilities continuously for the same reasons.
 //
 // CRITICAL: Without capabilities, teams WILL fork the UI to hide buttons for
 // vehicles that can't stop (fixed-wing), return home (tethered ROV), etc.
@@ -2028,14 +2066,15 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\bLocation\x12\x1a\n" +
 	"\blatitude\x18\x01 \x01(\x01R\blatitude\x12\x1c\n" +
 	"\tlongitude\x18\x02 \x01(\x01R\tlongitude\x12$\n" +
-	"\x0ealtitude_msl_m\x18\x03 \x01(\x02R\faltitudeMslM\"\xda\x01\n" +
+	"\x0ealtitude_msl_m\x18\x03 \x01(\x02R\faltitudeMslM\"\xfd\x01\n" +
 	"\tHeartbeat\x12\x1d\n" +
 	"\n" +
 	"vehicle_id\x18\x01 \x01(\tR\tvehicleId\x12!\n" +
 	"\ftimestamp_ms\x18\x02 \x01(\x03R\vtimestampMs\x12-\n" +
 	"\x06status\x18\x03 \x01(\x0e2\x15.openc2.VehicleStatusR\x06status\x12\x1b\n" +
 	"\tuptime_ms\x18\x04 \x01(\x03R\buptimeMs\x12?\n" +
-	"\fcapabilities\x18\x05 \x01(\v2\x1b.openc2.VehicleCapabilitiesR\fcapabilities\"\xe2\x01\n" +
+	"\fcapabilities\x18\x05 \x01(\v2\x1b.openc2.VehicleCapabilitiesR\fcapabilities\x12!\n" +
+	"\fvehicle_type\x18\x06 \x01(\tR\vvehicleType\"\xe2\x01\n" +
 	"\x13VehicleCapabilities\x12-\n" +
 	"\x12supported_commands\x18\x01 \x03(\tR\x11supportedCommands\x12;\n" +
 	"\n" +
@@ -2130,7 +2169,7 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\n" +
 	"ENV_GROUND\x10\x02\x12\x0f\n" +
 	"\vENV_SURFACE\x10\x03\x12\x12\n" +
-	"\x0eENV_SUBSURFACE\x10\x04*\xd9\x01\n" +
+	"\x0eENV_SUBSURFACE\x10\x04*\xc7\x01\n" +
 	"\n" +
 	"SensorType\x12\x12\n" +
 	"\x0eSENSOR_UNKNOWN\x10\x00\x12\x15\n" +
@@ -2139,12 +2178,11 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\x13SENSOR_CAMERA_DEPTH\x10\x03\x12\x13\n" +
 	"\x0fSENSOR_LIDAR_2D\x10\x04\x12\x13\n" +
 	"\x0fSENSOR_LIDAR_3D\x10\x05\x12\x10\n" +
-	"\fSENSOR_SONAR\x10\x06\x12\x10\n" +
-	"\fSENSOR_RADAR\x10\a\x12\x0e\n" +
+	"\fSENSOR_RADAR\x10\x06\x12\x0e\n" +
 	"\n" +
-	"SENSOR_IMU\x10\b\x12\x0e\n" +
+	"SENSOR_IMU\x10\a\x12\x0e\n" +
 	"\n" +
-	"SENSOR_GPS\x10\t*c\n" +
+	"SENSOR_GPS\x10\b*c\n" +
 	"\rAlertSeverity\x12\x11\n" +
 	"\rSEVERITY_INFO\x10\x00\x12\x14\n" +
 	"\x10SEVERITY_WARNING\x10\x01\x12\x12\n" +

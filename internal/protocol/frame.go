@@ -164,7 +164,6 @@ const (
 	SensorCameraDepth   = "camera_depth"
 	SensorLidar2D       = "lidar_2d"
 	SensorLidar3D       = "lidar_3d"
-	SensorSonar         = "sonar"
 	SensorRadar         = "radar"
 	SensorIMU           = "imu"
 	SensorGPS           = "gps"

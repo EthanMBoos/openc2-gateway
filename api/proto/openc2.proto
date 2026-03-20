@@ -162,6 +162,13 @@ message Heartbeat {
   // Sent on every heartbeat so capabilities can change at runtime
   // (e.g., sensor added, extension module loaded).
   VehicleCapabilities capabilities = 5;
+  
+  // Vehicle type identifier for UI auto-matching to Vehicle profiles.
+  // Example: "clearpath-husky-a200", "skydio-x2d", "bluerov2"
+  // UI matches this against Vehicle.name or Vehicle.tags[] to automatically
+  // link VehicleInstance to the correct Vehicle definition (static specs).
+  // If no match found, UI can prompt operator or use a generic profile.
+  string vehicle_type = 6;
 }
 
 // ============================================================================
@@ -259,10 +266,9 @@ enum SensorType {
   SENSOR_CAMERA_DEPTH = 3;
   SENSOR_LIDAR_2D = 4;
   SENSOR_LIDAR_3D = 5;
-  SENSOR_SONAR = 6;
-  SENSOR_RADAR = 7;
-  SENSOR_IMU = 8;
-  SENSOR_GPS = 9;
+  SENSOR_RADAR = 6;
+  SENSOR_IMU = 7;
+  SENSOR_GPS = 8;
 }
 
 // SensorMount describes the physical mounting of a sensor.

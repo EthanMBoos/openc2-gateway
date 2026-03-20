@@ -963,7 +963,7 @@ function ActionPanel({ vehicle }: Props) {
 
 **The Problem (Solved):**
 
-Cameras, LiDAR, sonar, and thermal sensors appear across nearly every robotics project. Treating them as extensions means:
+Cameras, LiDAR, radar, and thermal sensors appear across nearly every robotics project. Treating them as extensions means:
 
 - Every team defines their own camera proto
 - Stream URL formats vary wildly
@@ -990,10 +990,9 @@ enum SensorType {
   SENSOR_CAMERA_DEPTH = 3;
   SENSOR_LIDAR_2D = 4;
   SENSOR_LIDAR_3D = 5;
-  SENSOR_SONAR = 6;
-  SENSOR_RADAR = 7;
-  SENSOR_IMU = 8;
-  SENSOR_GPS = 9;
+  SENSOR_RADAR = 6;
+  SENSOR_IMU = 7;
+  SENSOR_GPS = 8;
 }
 
 message SensorMount {

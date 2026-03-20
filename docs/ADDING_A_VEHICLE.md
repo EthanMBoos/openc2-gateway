@@ -66,7 +66,7 @@ Refer to `testsender` (`cmd/testsender/main.go`) as a working reference implemen
 
 ## Level 2: Custom Protocol / Extension Codec
 
-Use this when your vehicle sends proprietary data (drive mode, bumper contacts, sonar readings, etc.) that doesn't fit the standard telemetry fields, or accepts custom commands beyond the core set.
+Use this when your vehicle sends proprietary data (drive mode, bumper contacts, depth readings, etc.) that doesn't fit the standard telemetry fields, or accepts custom commands beyond the core set.
 
 ### How extensions work
 

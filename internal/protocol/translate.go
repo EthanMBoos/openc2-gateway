@@ -520,8 +520,6 @@ func sensorTypeToString(t pb.SensorType) string {
 		return SensorLidar2D
 	case pb.SensorType_SENSOR_LIDAR_3D:
 		return SensorLidar3D
-	case pb.SensorType_SENSOR_SONAR:
-		return SensorSonar
 	case pb.SensorType_SENSOR_RADAR:
 		return SensorRadar
 	case pb.SensorType_SENSOR_IMU:
