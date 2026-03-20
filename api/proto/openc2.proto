@@ -186,7 +186,7 @@ message VehicleCapabilities {
 
 // ExtensionCapability advertises which actions a vehicle supports within an extension.
 // This enables fine-grained filtering: a vehicle might support the "husky" extension
-// but only implement "setBucketAngle" and not "emergencyRetract".
+// but only implement "setDriveMode" and not "triggerEstop".
 message ExtensionCapability {
   // Extension namespace (e.g., "husky", "camera")
   // Must match a registered extension codec in the gateway.
@@ -199,7 +199,7 @@ message ExtensionCapability {
   // Specific actions this vehicle supports within the extension.
   // If empty, vehicle supports ALL actions defined in the manifest.
   // If populated, vehicle ONLY supports these specific actions.
-  // Example: ["setBucketAngle", "setArmExtension"] (but not "emergencyRetract")
+  // Example: ["setDriveMode", "setBumperSensitivity"] (but not "triggerEstop")
   repeated string supported_actions = 3;
 }
 
@@ -313,14 +313,14 @@ message ExtensionCommand {
   // Extension namespace (e.g., "husky") - must match a registered codec
   string namespace = 1;
   
-  // Action within the extension (e.g., "setBucketAngle")
+  // Action within the extension (e.g., "setDriveMode")
   string action = 2;
   
   // Schema version for this command's payload format
   // Allows command schemas to evolve independently of telemetry schemas
   uint32 version = 3;
   
-  // Serialized extension-specific command proto (e.g., SetBucketAngleCommand)
+  // Serialized extension-specific command proto (e.g., SetDriveModeCommand)
   bytes payload = 4;
 }
 

@@ -112,7 +112,7 @@ VehicleTelemetry (openc2.proto)
 
 **Core absorbs universals.** If a concept applies to >2 vehicle types (sensors, missions, payloads), it belongs in `openc2.proto` as a first-class field — not as an extension that every team must implement independently.
 
-**Extensions own domain state.** If a concept is project-specific (bucket angle, sonar depth, gimbal pitch), it belongs in a codec with its own proto and manifest.
+**Extensions own domain state.** If a concept is project-specific (drive mode, bumper contacts, sonar depth, gimbal pitch), it belongs in a codec with its own proto and manifest.
 
 ---
 

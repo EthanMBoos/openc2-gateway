@@ -66,7 +66,7 @@ Refer to `testsender` (`cmd/testsender/main.go`) as a working reference implemen
 
 ## Level 2: Custom Protocol / Extension Codec
 
-Use this when your vehicle sends proprietary data (arm joint angles, bucket position, sonar readings, etc.) that doesn't fit the standard telemetry fields, or accepts custom commands beyond the core set.
+Use this when your vehicle sends proprietary data (drive mode, bumper contacts, sonar readings, etc.) that doesn't fit the standard telemetry fields, or accepts custom commands beyond the core set.
 
 ### How extensions work
 
@@ -85,14 +85,17 @@ option go_package = "github.com/EthanMBoos/openc2-gateway/api/proto/<yournamespa
 
 // Telemetry-specific message for your vehicle
 message MyRobotTelemetry {
-  float arm_angle_deg = 1;
-  float bucket_position = 2;
+  string drive_mode = 1;        // e.g., "MANUAL", "AUTONOMOUS"
+  bool e_stop_active = 2;
+  float battery_voltage = 3;
+  bool front_bumper_contact = 4;
+  bool rear_bumper_contact = 5;
   // ...
 }
 
 // Command-specific messages
-message SetArmAngleCommand {
-  float target_deg = 1;
+message SetDriveModeCommand {
+  string mode = 1;  // "MANUAL" or "AUTONOMOUS"
 }
 ```
 
@@ -135,8 +138,11 @@ func (c *Codec) DecodeTelemetry(version uint32, data []byte) (map[string]any, er
             return nil, fmt.Errorf("unmarshal v1: %w", err)
         }
         return map[string]any{
-            "arm_angle_deg":   msg.ArmAngleDeg,
-            "bucket_position": msg.BucketPosition,
+            "drive_mode":           msg.DriveMode,
+            "e_stop_active":        msg.EStopActive,
+            "battery_voltage":      msg.BatteryVoltage,
+            "front_bumper_contact": msg.FrontBumperContact,
+            "rear_bumper_contact":  msg.RearBumperContact,
         }, nil
     default:
         return nil, fmt.Errorf("unsupported version: %d", version)
@@ -145,12 +151,12 @@ func (c *Codec) DecodeTelemetry(version uint32, data []byte) (map[string]any, er
 
 func (c *Codec) EncodeCommand(action string, payload map[string]any) (uint32, []byte, error) {
     switch action {
-    case "setArmAngle":
-        angle, ok := payload["target_deg"].(float64)
+    case "setDriveMode":
+        mode, ok := payload["mode"].(string)
         if !ok {
-            return 0, nil, fmt.Errorf("setArmAngle: missing or invalid target_deg")
+            return 0, nil, fmt.Errorf("setDriveMode: missing or invalid mode")
         }
-        msg := &pb.SetArmAngleCommand{TargetDeg: float32(angle)}
+        msg := &pb.SetDriveModeCommand{Mode: mode}
         data, err := proto.Marshal(msg)
         return 1, data, err
     default:
@@ -188,7 +194,7 @@ capabilities: {
   extensions: [
     {
       namespace: "<yournamespace>",
-      supported_actions: ["setArmAngle", "setBucketPosition"]
+      supported_actions: ["setDriveMode", "triggerEstop"]
     }
   ]
 }
@@ -223,7 +229,7 @@ import (
 )
 
 func TestDecodeTelemetry(t *testing.T) {
-    msg := &pb.MyRobotTelemetry{ArmAngleDeg: 45.0, BucketPosition: 0.5}
+    msg := &pb.MyRobotTelemetry{DriveMode: "AUTONOMOUS", EStopActive: false, BatteryVoltage: 25.6}
     data, _ := proto.Marshal(msg)
 
     c := &Codec{}
@@ -231,14 +237,14 @@ func TestDecodeTelemetry(t *testing.T) {
     if err != nil {
         t.Fatal(err)
     }
-    if got["arm_angle_deg"] != float32(45.0) {
-        t.Errorf("arm_angle_deg: got %v", got["arm_angle_deg"])
+    if got["drive_mode"] != "AUTONOMOUS" {
+        t.Errorf("drive_mode: got %v", got["drive_mode"])
     }
 }
 
 func TestEncodeCommand(t *testing.T) {
     c := &Codec{}
-    version, data, err := c.EncodeCommand("setArmAngle", map[string]any{"target_deg": 90.0})
+    version, data, err := c.EncodeCommand("setDriveMode", map[string]any{"mode": "MANUAL"})
     if err != nil {
         t.Fatal(err)
     }

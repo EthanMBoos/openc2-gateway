@@ -885,9 +885,9 @@ The `supported_actions` field enables **granular capability advertisement**:
 | `supported_actions` value | Meaning |
 |--------------------------|---------|
 | Empty `[]` | Vehicle supports all actions in extending namespace |
-| `["setBucketAngle", "setArmExtension"]` | Vehicle only supports these specific actions |
+| `["setDriveMode", "triggerEstop"]` | Vehicle only supports these specific actions |
 
-This prevents the UI from showing "Deploy Blade" for a vehicle that doesn't have a blade attachment.
+This prevents the UI from showing unsupported commands for a particular vehicle configuration.
 
 **Testing:**
 

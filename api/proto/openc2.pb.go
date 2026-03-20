@@ -15,12 +15,11 @@
 package proto
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -938,7 +937,7 @@ func (x *VehicleCapabilities) GetSensors() []*SensorCapability {
 
 // ExtensionCapability advertises which actions a vehicle supports within an extension.
 // This enables fine-grained filtering: a vehicle might support the "husky" extension
-// but only implement "setBucketAngle" and not "emergencyRetract".
+// but only implement "setDriveMode" and not "triggerEstop".
 type ExtensionCapability struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Extension namespace (e.g., "husky", "camera")
@@ -950,7 +949,7 @@ type ExtensionCapability struct {
 	// Specific actions this vehicle supports within the extension.
 	// If empty, vehicle supports ALL actions defined in the manifest.
 	// If populated, vehicle ONLY supports these specific actions.
-	// Example: ["setBucketAngle", "setArmExtension"] (but not "emergencyRetract")
+	// Example: ["setDriveMode", "setBumperSensitivity"] (but not "triggerEstop")
 	SupportedActions []string `protobuf:"bytes,3,rep,name=supported_actions,json=supportedActions,proto3" json:"supported_actions,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1451,12 +1450,12 @@ type ExtensionCommand struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Extension namespace (e.g., "husky") - must match a registered codec
 	Namespace string `protobuf:"bytes,1,opt,name=namespace,proto3" json:"namespace,omitempty"`
-	// Action within the extension (e.g., "setBucketAngle")
+	// Action within the extension (e.g., "setDriveMode")
 	Action string `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
 	// Schema version for this command's payload format
 	// Allows command schemas to evolve independently of telemetry schemas
 	Version uint32 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	// Serialized extension-specific command proto (e.g., SetBucketAngleCommand)
+	// Serialized extension-specific command proto (e.g., SetDriveModeCommand)
 	Payload       []byte `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
