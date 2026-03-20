@@ -68,7 +68,7 @@ type TelemetryPayload struct {
 	Location            Location       `json:"location"`
 	Speed               float64        `json:"speed"`                         // Speed in m/s
 	Heading             float64        `json:"heading"`                       // Heading in degrees [0, 360)
-	Environment         string         `json:"environment"`                   // air, ground, surface, subsurface
+	Environment         string         `json:"environment"`                   // air, ground, surface
 	Seq                 uint32         `json:"seq"`                           // Monotonic sequence number for ordering
 	BatteryPercent      *int           `json:"batteryPct,omitempty"`          // 0-100, nil if unknown
 	SignalStrength      *int           `json:"signalStrength,omitempty"`      // 0-5 bars, nil if unknown
@@ -225,7 +225,7 @@ type VehicleSummary struct {
 	ID           string               `json:"id"`
 	Name         string               `json:"name"`
 	Status       string               `json:"status"`                 // online, offline, standby
-	Environment  string               `json:"environment"`            // air, ground, surface, subsurface
+	Environment  string               `json:"environment"`            // air, ground, surface
 	LastSeen     int64                `json:"lastSeen"`               // Unix timestamp (ms)
 	Capabilities *VehicleCapabilities `json:"capabilities,omitempty"` // What this vehicle supports
 }
@@ -360,9 +360,8 @@ const (
 
 // Environment values
 const (
-	EnvAir        = "air"
-	EnvGround     = "ground"
-	EnvSurface    = "surface"
-	EnvSubsurface = "subsurface"
-	EnvUnknown    = "unknown"
+	EnvAir     = "air"
+	EnvGround  = "ground"
+	EnvSurface = "surface"
+	EnvUnknown = "unknown"
 )

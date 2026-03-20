@@ -84,11 +84,10 @@ func (VehicleStatus) EnumDescriptor() ([]byte, []int) {
 type VehicleEnvironment int32
 
 const (
-	VehicleEnvironment_ENV_UNKNOWN    VehicleEnvironment = 0
-	VehicleEnvironment_ENV_AIR        VehicleEnvironment = 1
-	VehicleEnvironment_ENV_GROUND     VehicleEnvironment = 2
-	VehicleEnvironment_ENV_SURFACE    VehicleEnvironment = 3 // Water surface
-	VehicleEnvironment_ENV_SUBSURFACE VehicleEnvironment = 4 // Underwater
+	VehicleEnvironment_ENV_UNKNOWN VehicleEnvironment = 0
+	VehicleEnvironment_ENV_AIR     VehicleEnvironment = 1
+	VehicleEnvironment_ENV_GROUND  VehicleEnvironment = 2
+	VehicleEnvironment_ENV_SURFACE VehicleEnvironment = 3 // Water surface
 )
 
 // Enum value maps for VehicleEnvironment.
@@ -98,14 +97,12 @@ var (
 		1: "ENV_AIR",
 		2: "ENV_GROUND",
 		3: "ENV_SURFACE",
-		4: "ENV_SUBSURFACE",
 	}
 	VehicleEnvironment_value = map[string]int32{
-		"ENV_UNKNOWN":    0,
-		"ENV_AIR":        1,
-		"ENV_GROUND":     2,
-		"ENV_SURFACE":    3,
-		"ENV_SUBSURFACE": 4,
+		"ENV_UNKNOWN": 0,
+		"ENV_AIR":     1,
+		"ENV_GROUND":  2,
+		"ENV_SURFACE": 3,
 	}
 )
 
@@ -2162,14 +2159,13 @@ const file_api_proto_openc2_proto_rawDesc = "" +
 	"\rVehicleStatus\x12\x11\n" +
 	"\rSTATUS_ONLINE\x10\x00\x12\x12\n" +
 	"\x0eSTATUS_OFFLINE\x10\x01\x12\x12\n" +
-	"\x0eSTATUS_STANDBY\x10\x02*g\n" +
+	"\x0eSTATUS_STANDBY\x10\x02*S\n" +
 	"\x12VehicleEnvironment\x12\x0f\n" +
 	"\vENV_UNKNOWN\x10\x00\x12\v\n" +
 	"\aENV_AIR\x10\x01\x12\x0e\n" +
 	"\n" +
 	"ENV_GROUND\x10\x02\x12\x0f\n" +
-	"\vENV_SURFACE\x10\x03\x12\x12\n" +
-	"\x0eENV_SUBSURFACE\x10\x04*\xc7\x01\n" +
+	"\vENV_SURFACE\x10\x03*\xc7\x01\n" +
 	"\n" +
 	"SensorType\x12\x12\n" +
 	"\x0eSENSOR_UNKNOWN\x10\x00\x12\x15\n" +

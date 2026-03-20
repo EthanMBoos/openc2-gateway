@@ -348,8 +348,6 @@ func environmentToString(e pb.VehicleEnvironment) string {
 		return EnvGround
 	case pb.VehicleEnvironment_ENV_SURFACE:
 		return EnvSurface
-	case pb.VehicleEnvironment_ENV_SUBSURFACE:
-		return EnvSubsurface
 	default:
 		return EnvUnknown
 	}
@@ -363,8 +361,6 @@ func stringToEnvironment(s string) pb.VehicleEnvironment {
 		return pb.VehicleEnvironment_ENV_GROUND
 	case EnvSurface:
 		return pb.VehicleEnvironment_ENV_SURFACE
-	case EnvSubsurface:
-		return pb.VehicleEnvironment_ENV_SUBSURFACE
 	default:
 		return pb.VehicleEnvironment_ENV_UNKNOWN
 	}

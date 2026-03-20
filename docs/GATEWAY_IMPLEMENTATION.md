@@ -289,7 +289,7 @@ go test ./... -v
 ```bash
 go run ./cmd/testsender --help
 # -vid string      Vehicle ID (default "ugv-test-01")
-# -env string      Environment: ground, air, surface, subsurface (default "ground")
+# -env string      Environment: ground, air, surface (default "ground")
 # -group string    Multicast group (default "239.255.0.1")
 # -port int        Multicast port (default 14550)
 # -rate int        Telemetry rate in Hz (default 10)

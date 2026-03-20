@@ -86,7 +86,7 @@ go run ./cmd/testsender -vid ugv-custom -caps no-stop
 | Flag | Default | Options |
 |---|---|---|
 | `-vid` | `ugv-test-01` | Any string — used as vehicle ID |
-| `-env` | `ground` | `ground`, `air`, `surface`, `subsurface` |
+| `-env` | `ground` | `ground`, `air`, `surface` |
 | `-group` | `239.255.0.1` | Multicast group to send on |
 | `-port` | `14550` | UDP port to send on |
 | `-rate` | `10` | Telemetry Hz |

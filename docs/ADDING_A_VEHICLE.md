@@ -20,7 +20,6 @@ If your vehicle speaks the standard OpenC2 protobuf schema (`api/proto/openc2.pr
 | Ground robot (UGV) | `ENV_GROUND` | `ground` |
 | Aerial vehicle (UAV) | `ENV_AIR` | `air` |
 | Surface vessel (USV) | `ENV_SURFACE` | `surface` |
-| Underwater vehicle (UUV) | `ENV_SUBSURFACE` | `subsurface` |
 
 ### 2. Define capabilities
 
@@ -275,7 +274,7 @@ go test ./internal/extensions/<yournamespace>/...
 ## Checklist
 
 **Standard vehicle:**
-- [ ] Chose environment (`ground` / `air` / `surface` / `subsurface`)
+- [ ] Chose environment (`ground` / `air` / `surface`)
 - [ ] Defined capabilities (supported commands, missions)
 - [ ] Verified with `testsender` + `testclient`
 - [ ] Vehicle firmware sends protobuf telemetry to correct multicast address

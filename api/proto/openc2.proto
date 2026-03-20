@@ -147,7 +147,6 @@ enum VehicleEnvironment {
   ENV_AIR = 1;
   ENV_GROUND = 2;
   ENV_SURFACE = 3; // Water surface
-  ENV_SUBSURFACE = 4; // Underwater
 }
 
 // Heartbeat message sent periodically to confirm connectivity
