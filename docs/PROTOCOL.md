@@ -35,18 +35,29 @@ Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JS
 ## Connection Lifecycle
 
 ```
-Client                              Gateway
-  │──────── WebSocket Connect ────────▶│
-  │◀─────── Connection Accepted ───────│
-  │──────── hello ────────────────────▶│
-  │◀─────── welcome (fleet snapshot) ──│
-  │◀─────── telemetry stream ──────────│
-  │──────── command ──────────────────▶│
-  │◀─────── command_ack ───────────────│
+                        VEHICLE ↔ GATEWAY                    GATEWAY ↔ UI
+                       (protobuf/UDP multicast)              (JSON/WebSocket)
+                       
+┌─────────────┐                           ┌─────────────┐                    ┌─────────────┐
+│   Vehicle   │                           │   Gateway   │                    │     UI      │
+└──────┬──────┘                           └──────┬──────┘                    └──────┬──────┘
+       │                                         │                                  │
+       │◀───── GatewayHeartbeat (1/sec) ────────│                                  │
+       │                                         │◀────────── hello ───────────────│
+       │                                         │─────────── welcome ────────────▶│
+       │                                         │            (fleet, manifests,   │
+       │                                         │             availableExtensions)│
+       │                                         │                                  │
+       │────── VehicleTelemetry ────────────────▶│─────────── telemetry ──────────▶│
+       │────── Heartbeat (capabilities) ────────▶│                                  │
+       │                                         │                                  │
+       │◀───── Command ─────────────────────────│◀────────── command ─────────────│
+       │────── CommandAck ──────────────────────▶│─────────── command_ack ────────▶│
 ```
 
 - Client MUST send `hello` as first message
-- Gateway responds with `welcome` containing full fleet state
+- Gateway responds with `welcome` containing full fleet state, available extensions, and manifests
+- Vehicles do NOT receive the `welcome` message — it's UI-only
 
 ---
 
@@ -235,7 +246,22 @@ The `hello` → `welcome` handshake performs version negotiation:
     "protocolVersion": 1,
     "supportedVersions": [1],
     "fleet": [...],
-    "config": {...}
+    "config": {...},
+    "availableExtensions": [
+      { "namespace": "husky", "version": 1 },
+      { "namespace": "camera", "version": 1 }
+    ],
+    "manifests": {
+      "husky": {
+        "namespace": "husky",
+        "version": "1.0",
+        "displayName": "Husky UGV Controls",
+        "commands": [
+          { "action": "setDriveMode", "label": "Set Drive Mode" },
+          { "action": "triggerEStop", "label": "Trigger E-Stop", "confirmation": true }
+        ]
+      }
+    }
   }
 }
 ```
@@ -244,6 +270,8 @@ The `hello` → `welcome` handshake performs version negotiation:
 |-------|-------------|
 | `protocolVersion` | The negotiated version for this session |
 | `supportedVersions` | All versions this gateway can speak (for client diagnostics) |
+| `availableExtensions` | Extensions the gateway has codecs for (namespace + version) |
+| `manifests` | Extension manifests with UI metadata (commands, labels, confirmations) |
 
 **Client implementation hint:** If you receive `PROTOCOL_VERSION_UNSUPPORTED`, check `supportedVersions` in the error payload and downgrade if possible.
 

@@ -73,7 +73,25 @@ The underscore import triggers `init()`, which calls `extensions.Register()`. Th
 
 Gateway translates extensions to JSON for UI consumption.
 
-**Welcome Snapshot:** The `welcome` message contains core telemetry only — no extension data. Clients receive extension state on the first telemetry frame after handshake.
+**Welcome Snapshot:** The `welcome` message includes:
+- **`availableExtensions`** — list of extension namespaces the gateway can decode (collected from registered codecs at startup)
+- **`manifests`** — full manifest for each extension (commands, labels, UI hints)
+
+This makes the gateway the **single source of truth** for what extensions exist. Vehicles then advertise which of these extensions they support via `supportedExtensions` in telemetry.
+
+**Extension governance flow:**
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         AUTHORITY CHAIN                             │
+├─────────────────────────────────────────────────────────────────────┤
+│  1. Gateway compiles with codec imports → availableExtensions       │
+│  2. Gateway sends availableExtensions + manifests in welcome        │
+│  3. Vehicles advertise supportedExtensions in telemetry             │
+│  4. UI filters buttons by: gateway.available ∩ vehicle.supported    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**No config file needed.** The gateway's registered codecs ARE the config. To disable an extension, remove its import from `cmd/gateway/main.go`.
 
 **Telemetry with extensions:**
 ```json

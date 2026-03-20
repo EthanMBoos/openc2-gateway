@@ -85,7 +85,17 @@ message VehicleTelemetry {
   
   // ── Extension Support ──
   // See docs/EXTENSIBILITY.md for full extension architecture.
-  
+  //
+  // IMPORTANT: There are TWO extension-related concepts:
+  //
+  // 1. extensions (this field) = LIVE STATE (10-100Hz telemetry)
+  //    → "My battery voltage is 25.6V, drive mode is AUTONOMOUS"
+  //    → Changes constantly, sent on every telemetry frame
+  //
+  // 2. VehicleCapabilities.extensions (in Heartbeat) = VALID COMMANDS (1Hz)
+  //    → "I can do setDriveMode and triggerEStop"
+  //    → Tells UI which buttons to show
+  //
   // List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
   // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
   // Vehicles SHOULD populate this on every telemetry frame.
@@ -161,6 +171,21 @@ message Heartbeat {
 // VehicleCapabilities advertises what commands/features a vehicle supports.
 // This prevents the UI from showing buttons for unsupported actions and allows
 // the gateway to fail-fast on invalid commands.
+//
+// DESIGN: Sent on EVERY heartbeat (1Hz), not just once.
+//
+// Why repeat on every heartbeat?
+// - Stateless robustness: Gateway restart → learns caps from next heartbeat
+// - UDP is unreliable: Lost packet recovers in 1 second  
+// - Capabilities CAN change at runtime:
+//   * Sensor failure → remove from sensors[]
+//   * Battery critical → remove "goto" from supported_commands (can only RTL)
+//   * E-Stop engaged → remove movement commands temporarily
+//   * Hot-plugged hardware → add new sensor
+//   * Firmware OTA update → new commands become available
+//
+// Industry precedent: MAVLink HEARTBEAT, ROS2 DDS, DIS entity state all
+// advertise capabilities continuously for the same reasons.
 //
 // CRITICAL: Without capabilities, teams WILL fork the UI to hide buttons for
 // vehicles that can't stop (fixed-wing), return home (tethered ROV), etc.
