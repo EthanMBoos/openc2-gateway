@@ -42,6 +42,38 @@ func All() []Codec {
 	return result
 }
 
+// AvailableExtension describes an extension the gateway can decode.
+// Used to build the welcome message.
+type AvailableExtension struct {
+	Namespace string
+	Version   uint32
+}
+
+// GetAvailableExtensions returns a list of all registered extensions with their versions.
+// Used to populate the welcome message's availableExtensions field.
+func GetAvailableExtensions() []AvailableExtension {
+	mu.RLock()
+	defer mu.RUnlock()
+	result := make([]AvailableExtension, 0, len(codecs))
+	for _, c := range codecs {
+		// Use the highest supported version for each extension
+		versions := c.SupportedVersions()
+		if len(versions) > 0 {
+			maxVersion := versions[0]
+			for _, v := range versions[1:] {
+				if v > maxVersion {
+					maxVersion = v
+				}
+			}
+			result = append(result, AvailableExtension{
+				Namespace: c.Namespace(),
+				Version:   maxVersion,
+			})
+		}
+	}
+	return result
+}
+
 // DecodeAll decodes every extension in a telemetry map.
 // Unknown namespaces produce an _error entry rather than failing the whole frame —
 // one bad extension shouldn't drop all telemetry.

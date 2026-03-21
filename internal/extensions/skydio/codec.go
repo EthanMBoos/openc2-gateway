@@ -19,7 +19,112 @@ import (
 
 func init() {
 	extensions.Register(&Codec{})
+	extensions.RegisterManifest(extensions.Manifest{
+		Namespace:   "skydio",
+		Version:     "1.0",
+		DisplayName: "Skydio Drone Controls",
+		Commands: []extensions.CommandDefinition{
+			{
+				Command:     "setFlightMode",
+				Label:       "Set Flight Mode",
+				Description: "Change flight behavior",
+				TargetMode:  "both",
+				Parameters: []extensions.CommandParameter{
+					{
+						Name:     "mode",
+						Label:    "Flight Mode",
+						Type:     "select",
+						Required: true,
+						Options: []extensions.ParameterOption{
+							{Value: "hover", Label: "Hover"},
+							{Value: "manual", Label: "Manual"},
+							{Value: "waypoint", Label: "Waypoint"},
+							{Value: "orbit", Label: "Orbit"},
+						},
+					},
+				},
+			},
+			{
+				Command:     "setGimbal",
+				Label:       "Gimbal Control",
+				Description: "Adjust camera gimbal pitch and yaw",
+				Parameters: []extensions.CommandParameter{
+					{
+						Name:    "pitch",
+						Label:   "Pitch",
+						Type:    "number",
+						Min:     floatPtr(-90),
+						Max:     floatPtr(30),
+						Default: 0,
+					},
+					{
+						Name:    "yaw",
+						Label:   "Yaw",
+						Type:    "number",
+						Min:     floatPtr(-180),
+						Max:     floatPtr(180),
+						Default: 0,
+					},
+				},
+			},
+			{Command: "startRecording", Label: "Start Recording", Description: "Begin video recording"},
+			{Command: "stopRecording", Label: "Stop Recording", Description: "End video recording"},
+			{Command: "takePhoto", Label: "Take Photo", Description: "Capture a still image", TargetMode: "both"},
+			{
+				Command:      "orbit",
+				Label:        "Orbit Point",
+				Description:  "Circle around a point of interest",
+				Confirmation: true,
+				Parameters: []extensions.CommandParameter{
+					{
+						Name:        "center",
+						Label:       "Center Point",
+						Type:        "coordinates",
+						Required:    true,
+						Description: "Click on map to select orbit center",
+					},
+					{
+						Name:    "radius",
+						Label:   "Radius (m)",
+						Type:    "number",
+						Min:     floatPtr(5),
+						Max:     floatPtr(100),
+						Default: 20,
+					},
+				},
+			},
+			{Command: "track", Label: "Track Subject", Description: "Begin autonomous subject tracking", Confirmation: true},
+			{Command: "stopTracking", Label: "Stop Tracking", Description: "End autonomous tracking"},
+			{
+				Command:     "sendToZone",
+				Label:       "Send to Zone",
+				Description: "Fly to a designated zone on the map",
+				TargetMode:  "both",
+				Parameters: []extensions.CommandParameter{
+					{
+						Name:        "zoneId",
+						Label:       "Zone",
+						Type:        "zone",
+						Required:    true,
+						Description: "Select a zone from the map",
+					},
+					{
+						Name:        "altitude",
+						Label:       "Altitude (m)",
+						Type:        "number",
+						Min:         floatPtr(10),
+						Max:         floatPtr(120),
+						Default:     30,
+						Description: "Flight altitude above ground",
+					},
+				},
+			},
+		},
+	})
 }
+
+// floatPtr returns a pointer to the given float64 value.
+func floatPtr(v float64) *float64 { return &v }
 
 // Codec implements extensions.Codec for Skydio drones.
 type Codec struct{}

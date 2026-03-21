@@ -25,7 +25,14 @@ func NewStatusFrame(vehicleID string, status string, signalStrength *int, source
 }
 
 // NewWelcomeFrame creates a welcome response frame.
-func NewWelcomeFrame(gatewayVersion string, fleet []VehicleSummary, telemetryRateHz, heartbeatIntervalMs int) *Frame {
+// availableExtensions and manifests can be nil if no extensions are registered.
+func NewWelcomeFrame(
+	gatewayVersion string,
+	fleet []VehicleSummary,
+	telemetryRateHz, heartbeatIntervalMs int,
+	availableExtensions []AvailableExtension,
+	manifests map[string]ExtensionManifest,
+) *Frame {
 	return &Frame{
 		ProtocolVersion:    ProtocolVersion,
 		Type:               TypeWelcome,
@@ -41,6 +48,8 @@ func NewWelcomeFrame(gatewayVersion string, fleet []VehicleSummary, telemetryRat
 				TelemetryRateHz:     telemetryRateHz,
 				HeartbeatIntervalMs: heartbeatIntervalMs,
 			},
+			AvailableExtensions: availableExtensions,
+			Manifests:           manifests,
 		},
 	}
 }

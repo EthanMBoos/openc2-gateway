@@ -372,11 +372,52 @@ type ExtensionManifest struct {
 
 // ExtensionCommandDefinition describes a command within an extension.
 type ExtensionCommandDefinition struct {
-	Command      string  `json:"command"`                // Command identifier (e.g., "setDriveMode")
-	Label        string  `json:"label"`                  // UI button label
-	Description  *string `json:"description,omitempty"`  // Tooltip text
-	Confirmation bool    `json:"confirmation,omitempty"` // Requires user confirmation before sending
+	Command      string             `json:"command"`                // Command identifier (e.g., "setDriveMode")
+	Label        string             `json:"label"`                  // UI button label
+	Description  *string            `json:"description,omitempty"`  // Tooltip text
+	Confirmation bool               `json:"confirmation,omitempty"` // Requires user confirmation before sending
+	Parameters   []CommandParameter `json:"parameters,omitempty"`   // Payload schema for UI input fields
+	TargetMode   string             `json:"targetMode,omitempty"`   // "single", "broadcast", or "both" (default: "single")
 }
+
+// CommandParameter defines an input field for a command payload.
+// The UI uses this to render appropriate form controls.
+type CommandParameter struct {
+	Name        string            `json:"name"`                  // Key in the payload (e.g., "mode", "zoneId")
+	Label       string            `json:"label"`                 // UI label
+	Type        string            `json:"type"`                  // Parameter type (see ParameterType* constants)
+	Required    bool              `json:"required,omitempty"`    // Whether the parameter is required
+	Default     any               `json:"default,omitempty"`     // Default value
+	Options     []ParameterOption `json:"options,omitempty"`     // For "select" type: available choices
+	Description *string           `json:"description,omitempty"` // Help text
+	Min         *float64          `json:"min,omitempty"`         // For "number" type: minimum value
+	Max         *float64          `json:"max,omitempty"`         // For "number" type: maximum value
+}
+
+// ParameterOption defines a choice for "select" type parameters.
+type ParameterOption struct {
+	Value string `json:"value"` // Value sent in payload
+	Label string `json:"label"` // Display label in UI
+}
+
+// Parameter types for CommandParameter.Type
+const (
+	ParamTypeString      = "string"      // Free text input
+	ParamTypeNumber      = "number"      // Numeric input (optionally bounded by min/max)
+	ParamTypeBoolean     = "boolean"     // Toggle/checkbox
+	ParamTypeSelect      = "select"      // Dropdown from Options
+	ParamTypeZone        = "zone"        // Zone picker from map features
+	ParamTypeCoordinates = "coordinates" // Lat/lng picker from map
+	ParamTypeVehicle     = "vehicle"     // Vehicle instance picker
+)
+
+// Target modes for ExtensionCommandDefinition.TargetMode
+// This is manifest-level metadata that tells the UI what targeting options to present.
+const (
+	TargetModeSingle    = "single"    // Command targets one specific vehicle instance
+	TargetModeBroadcast = "broadcast" // Command targets all vehicles supporting this extension
+	TargetModeBoth      = "both"      // UI shows a toggle letting operator choose single OR broadcast at command time
+)
 
 // WelcomeConfig contains gateway configuration shared with clients.
 type WelcomeConfig struct {

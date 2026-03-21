@@ -51,7 +51,7 @@
     },
     "availableExtensions": [
       { "namespace": "husky", "version": 1 },
-      { "namespace": "camera", "version": 1 }
+      { "namespace": "skydio", "version": 1 }
     ],
     "manifests": {
       "husky": {
@@ -59,9 +59,47 @@
         "version": "1.0",
         "displayName": "Husky UGV Controls",
         "commands": [
-          { "action": "setDriveMode", "label": "Set Drive Mode", "description": "Change between manual/autonomous/guided", "confirmation": false },
-          { "action": "setBumperSensitivity", "label": "Bumper Sensitivity", "description": "Adjust collision detection threshold", "confirmation": false },
-          { "action": "triggerEStop", "label": "Emergency Stop", "description": "Immediately halt all motion", "confirmation": true }
+          {
+            "command": "setDriveMode",
+            "label": "Set Drive Mode",
+            "description": "Change between manual, autonomous, or guided control",
+            "targetMode": "both",
+            "parameters": [
+              {
+                "name": "mode",
+                "label": "Drive Mode",
+                "type": "select",
+                "required": true,
+                "options": [
+                  { "value": "manual", "label": "Manual" },
+                  { "value": "autonomous", "label": "Autonomous" },
+                  { "value": "guided", "label": "Guided" }
+                ]
+              }
+            ]
+          },
+          {
+            "command": "sendToZone",
+            "label": "Send to Zone",
+            "description": "Navigate to a designated zone on the map",
+            "targetMode": "both",
+            "parameters": [
+              {
+                "name": "zoneId",
+                "label": "Zone",
+                "type": "zone",
+                "required": true,
+                "description": "Select a zone from the map"
+              }
+            ]
+          },
+          {
+            "command": "triggerEStop",
+            "label": "Emergency Stop",
+            "description": "Immediately halt all motion",
+            "confirmation": true,
+            "targetMode": "both"
+          }
         ]
       }
     }

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/EthanMBoos/openc2-gateway/internal/command"
+	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
 	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
 	"github.com/EthanMBoos/openc2-gateway/internal/registry"
 	"github.com/gorilla/websocket"
@@ -220,12 +221,20 @@ func (s *Server) handleHello(c *Client, frame *protocol.Frame) error {
 	// Build fleet snapshot
 	fleet := s.registry.GetFleetSummary()
 
+	// Collect available extensions from registered codecs
+	availableExts := collectAvailableExtensions()
+
+	// Collect manifests from registered extensions
+	manifests := collectManifests()
+
 	// Send welcome response
 	welcome := protocol.NewWelcomeFrame(
 		s.config.GatewayVersion,
 		fleet,
 		10,   // telemetryRateHz
 		1000, // heartbeatIntervalMs
+		availableExts,
+		manifests,
 	)
 
 	c.send <- welcome
@@ -235,9 +244,90 @@ func (s *Server) handleHello(c *Client, frame *protocol.Frame) error {
 		"client_id", hello.ClientID,
 		"protocol_version", hello.ProtocolVersion,
 		"fleet_size", len(fleet),
+		"extensions", len(availableExts),
 	)
 
 	return nil
+}
+
+// collectAvailableExtensions converts extension registry data to protocol format.
+func collectAvailableExtensions() []protocol.AvailableExtension {
+	extList := extensions.GetAvailableExtensions()
+	result := make([]protocol.AvailableExtension, len(extList))
+	for i, ext := range extList {
+		result[i] = protocol.AvailableExtension{
+			Namespace: ext.Namespace,
+			Version:   ext.Version,
+		}
+	}
+	return result
+}
+
+// collectManifests converts extension manifests to protocol format.
+func collectManifests() map[string]protocol.ExtensionManifest {
+	extManifests := extensions.GetAllManifests()
+	result := make(map[string]protocol.ExtensionManifest, len(extManifests))
+	for ns, m := range extManifests {
+		cmds := make([]protocol.ExtensionCommandDefinition, len(m.Commands))
+		for i, cmd := range m.Commands {
+			var desc *string
+			if cmd.Description != "" {
+				desc = &cmd.Description
+			}
+
+			// Convert parameters
+			var params []protocol.CommandParameter
+			if len(cmd.Parameters) > 0 {
+				params = make([]protocol.CommandParameter, len(cmd.Parameters))
+				for j, p := range cmd.Parameters {
+					var paramDesc *string
+					if p.Description != "" {
+						paramDesc = &p.Description
+					}
+
+					// Convert options
+					var opts []protocol.ParameterOption
+					if len(p.Options) > 0 {
+						opts = make([]protocol.ParameterOption, len(p.Options))
+						for k, o := range p.Options {
+							opts[k] = protocol.ParameterOption{
+								Value: o.Value,
+								Label: o.Label,
+							}
+						}
+					}
+
+					params[j] = protocol.CommandParameter{
+						Name:        p.Name,
+						Label:       p.Label,
+						Type:        p.Type,
+						Required:    p.Required,
+						Default:     p.Default,
+						Options:     opts,
+						Description: paramDesc,
+						Min:         p.Min,
+						Max:         p.Max,
+					}
+				}
+			}
+
+			cmds[i] = protocol.ExtensionCommandDefinition{
+				Command:      cmd.Command,
+				Label:        cmd.Label,
+				Description:  desc,
+				Confirmation: cmd.Confirmation,
+				Parameters:   params,
+				TargetMode:   cmd.TargetMode,
+			}
+		}
+		result[ns] = protocol.ExtensionManifest{
+			Namespace:   m.Namespace,
+			Version:     m.Version,
+			DisplayName: m.DisplayName,
+			Commands:    cmds,
+		}
+	}
+	return result
 }
 
 // handleCommand processes a command from a client.
@@ -279,11 +369,15 @@ func (s *Server) SetMetricsHandler(handler http.Handler) {
 // GetWelcomeFrame generates a welcome frame with current fleet state.
 func (s *Server) GetWelcomeFrame() *protocol.Frame {
 	fleet := s.registry.GetFleetSummary()
+	availableExts := collectAvailableExtensions()
+	manifests := collectManifests()
 	return protocol.NewWelcomeFrame(
 		s.config.GatewayVersion,
 		fleet,
 		10,
 		1000,
+		availableExts,
+		manifests,
 	)
 }
 
