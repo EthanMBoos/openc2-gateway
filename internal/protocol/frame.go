@@ -54,9 +54,9 @@ const (
 
 // Location represents a geographic position in WGS84 coordinates.
 type Location struct {
-	Lat    float64  `json:"lat"`               // Latitude in degrees (-90 to 90)
-	Lng    float64  `json:"lng"`               // Longitude in degrees (-180 to 180)
-	AltMsl *float64 `json:"alt_msl,omitempty"` // Altitude MSL in meters
+	Lat    float64  `json:"lat"`              // Latitude in degrees (-90 to 90)
+	Lng    float64  `json:"lng"`              // Longitude in degrees (-180 to 180)
+	AltMsl *float64 `json:"altMsl,omitempty"` // Altitude MSL in meters
 }
 
 // ----------------------------------------------------------------------------
