@@ -19,7 +19,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700802000,
-    "action": "goto",
+    "command": "goto",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
       "destination": {
@@ -36,7 +36,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700803000,
-    "action": "stop",
+    "command": "stop",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440001"
     }
@@ -47,7 +47,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700804000,
-    "action": "return_home",
+    "command": "return_home",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440002"
     }
@@ -58,7 +58,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700805000,
-    "action": "set_mode",
+    "command": "set_mode",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440003",
       "mode": "autonomous"
@@ -70,7 +70,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700806000,
-    "action": "set_speed",
+    "command": "set_speed",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440004",
       "speed": 1.5
@@ -82,7 +82,7 @@
     "type": "command",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700807000,
-    "action": "extension",
+    "command": "extension",
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440005",
       "namespace": "husky",

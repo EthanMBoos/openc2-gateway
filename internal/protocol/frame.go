@@ -18,6 +18,7 @@ type Frame struct {
 	VehicleID          string      `json:"vehicleId"`                    // Vehicle ID (source or target)
 	TimestampMs        int64       `json:"timestampMs"`                  // Vehicle timestamp (UNTRUSTED - display only)
 	GatewayTimestampMs int64       `json:"gatewayTimestampMs,omitempty"` // Gateway timestamp (authoritative)
+	Command            string      `json:"command,omitempty"`            // Command type (for type="command" frames)
 	Data               interface{} `json:"data"`                         // Type-specific payload
 }
 
@@ -346,6 +347,7 @@ type HelloPayload struct {
 type WelcomePayload struct {
 	GatewayVersion      string                       `json:"gatewayVersion"`
 	ProtocolVersion     int                          `json:"protocolVersion"`
+	SupportedVersions   []int                        `json:"supportedVersions"` // All protocol versions gateway can speak
 	Fleet               []VehicleSummary             `json:"fleet"`
 	Config              WelcomeConfig                `json:"config"`
 	AvailableExtensions []AvailableExtension         `json:"availableExtensions,omitempty"` // Extensions the gateway can decode

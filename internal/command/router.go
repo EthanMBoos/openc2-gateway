@@ -100,23 +100,26 @@ type RouteResult struct {
 // Route processes a command from a UI client.
 // Returns a response frame (ack or error) to send back to the client.
 func (r *Router) Route(frame *protocol.Frame) RouteResult {
-	// Parse the command data
+	// Validate command type from frame-level field
+	if frame.Command == "" {
+		return r.errorResult(protocol.ErrInvalidMessage, "missing command type")
+	}
+
+	// Parse the command data for commandId and payload
 	dataBytes, err := json.Marshal(frame.Data)
 	if err != nil {
 		return r.errorResult(protocol.ErrInvalidMessage, "failed to marshal command data")
 	}
 
-	// Determine command type from the "action" field
-	var actionData struct {
-		Action    string `json:"action"`
+	var cmdData struct {
 		CommandID string `json:"commandId"`
 	}
-	if err := json.Unmarshal(dataBytes, &actionData); err != nil {
-		return r.errorResult(protocol.ErrInvalidMessage, "failed to parse command action")
+	if err := json.Unmarshal(dataBytes, &cmdData); err != nil {
+		return r.errorResult(protocol.ErrInvalidMessage, "failed to parse command data")
 	}
 
 	// Validate required fields
-	if actionData.CommandID == "" {
+	if cmdData.CommandID == "" {
 		return r.errorResult(protocol.ErrInvalidMessage, "missing commandId")
 	}
 	if frame.VehicleID == "" || frame.VehicleID == protocol.VehicleIDClient || frame.VehicleID == protocol.VehicleIDGateway {
@@ -131,26 +134,26 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 			Frame: protocol.NewCommandErrorFrame(
 				protocol.ErrVehicleNotFound,
 				fmt.Sprintf("vehicle %s not found in registry", frame.VehicleID),
-				actionData.CommandID,
+				cmdData.CommandID,
 			),
 		}
 	}
 
 	// Validate command against vehicle capabilities (fail-fast)
-	if !r.isCommandSupported(vehicle, actionData.Action, dataBytes) {
-		errMsg := r.buildCapabilityErrorMessage(vehicle, actionData.Action, dataBytes)
+	if !r.isCommandSupported(vehicle, frame.Command, dataBytes) {
+		errMsg := r.buildCapabilityErrorMessage(vehicle, frame.Command, dataBytes)
 		return RouteResult{
 			Success: false,
 			Frame: protocol.NewCommandErrorFrame(
 				protocol.ErrCommandNotSupported,
 				errMsg,
-				actionData.CommandID,
+				cmdData.CommandID,
 			),
 		}
 	}
 
 	// Check rate limit via tracker
-	trackResult := r.tracker.Track(actionData.CommandID, frame.VehicleID, actionData.Action)
+	trackResult := r.tracker.Track(cmdData.CommandID, frame.VehicleID, frame.Command)
 	if !trackResult.Accepted {
 		return RouteResult{
 			Success: false,
@@ -159,10 +162,10 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	}
 
 	// Build protobuf command
-	pbCmd, err := r.buildProtoCommand(frame.VehicleID, actionData.CommandID, actionData.Action, dataBytes)
+	pbCmd, err := r.buildProtoCommand(frame.VehicleID, cmdData.CommandID, frame.Command, dataBytes)
 	if err != nil {
 		// Un-track the command since we couldn't build it
-		r.tracker.Acknowledge(actionData.CommandID)
+		r.tracker.Acknowledge(cmdData.CommandID)
 		return r.errorResult(protocol.ErrInvalidMessage, err.Error())
 	}
 
@@ -176,7 +179,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	// Marshal and send
 	data, err := proto.Marshal(gwMsg)
 	if err != nil {
-		r.tracker.Acknowledge(actionData.CommandID)
+		r.tracker.Acknowledge(cmdData.CommandID)
 		return r.errorResult(protocol.ErrCommandSendFailed, "failed to marshal command")
 	}
 
@@ -185,19 +188,19 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	r.mu.RUnlock()
 
 	if conn == nil {
-		r.tracker.Acknowledge(actionData.CommandID)
+		r.tracker.Acknowledge(cmdData.CommandID)
 		return r.errorResult(protocol.ErrCommandSendFailed, "command router not started")
 	}
 
 	if _, err := conn.Write(data); err != nil {
-		r.tracker.Acknowledge(actionData.CommandID)
+		r.tracker.Acknowledge(cmdData.CommandID)
 		return r.errorResult(protocol.ErrCommandSendFailed, fmt.Sprintf("failed to send: %v", err))
 	}
 
 	slog.Debug("command sent",
 		"vehicle_id", frame.VehicleID,
-		"action", actionData.Action,
-		"command_id", actionData.CommandID,
+		"command", frame.Command,
+		"command_id", cmdData.CommandID,
 	)
 
 	// Return immediate gateway ack
@@ -205,7 +208,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 		Success: true,
 		Frame: protocol.NewGatewayCommandAckFrame(
 			frame.VehicleID,
-			actionData.CommandID,
+			cmdData.CommandID,
 			protocol.AckAccepted,
 			"",
 		),

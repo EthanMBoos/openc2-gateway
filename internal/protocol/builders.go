@@ -33,9 +33,10 @@ func NewWelcomeFrame(gatewayVersion string, fleet []VehicleSummary, telemetryRat
 		TimestampMs:        nowMs(),
 		GatewayTimestampMs: nowMs(),
 		Data: WelcomePayload{
-			GatewayVersion:  gatewayVersion,
-			ProtocolVersion: ProtocolVersion,
-			Fleet:           fleet,
+			GatewayVersion:    gatewayVersion,
+			ProtocolVersion:   ProtocolVersion,
+			SupportedVersions: []int{ProtocolVersion},
+			Fleet:             fleet,
 			Config: WelcomeConfig{
 				TelemetryRateHz:     telemetryRateHz,
 				HeartbeatIntervalMs: heartbeatIntervalMs,
