@@ -1,0 +1,131 @@
+{
+  "_comment": "Sample response frames from gateway to UI (acks, alerts, errors).",
+  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  
+  "command_ack_accepted": {
+    "protocolVersion": 1,
+    "type": "command_ack",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700802100,
+    "gatewayTimestampMs": 1710700802150,
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
+      "status": "accepted",
+      "message": null
+    }
+  },
+  
+  "command_ack_completed": {
+    "protocolVersion": 1,
+    "type": "command_ack",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700810000,
+    "gatewayTimestampMs": 1710700810050,
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
+      "status": "completed",
+      "message": "Arrived at destination"
+    }
+  },
+  
+  "command_ack_rejected": {
+    "protocolVersion": 1,
+    "type": "command_ack",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700803100,
+    "gatewayTimestampMs": 1710700803150,
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440001",
+      "status": "rejected",
+      "message": "Vehicle in E-Stop state"
+    }
+  },
+  
+  "alert_warning": {
+    "protocolVersion": 1,
+    "type": "alert",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700815000,
+    "gatewayTimestampMs": 1710700815010,
+    "data": {
+      "severity": "warning",
+      "code": "LOW_BATTERY",
+      "message": "Battery below 20%",
+      "location": {
+        "lat": 33.7758,
+        "lng": -84.3965,
+        "altMsl": 320.0
+      }
+    }
+  },
+  
+  "alert_critical": {
+    "protocolVersion": 1,
+    "type": "alert",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700820000,
+    "gatewayTimestampMs": 1710700820010,
+    "data": {
+      "severity": "critical",
+      "code": "GEOFENCE_BREACH",
+      "message": "Vehicle exited operational boundary",
+      "location": {
+        "lat": 33.7800,
+        "lng": -84.3900,
+        "altMsl": 318.0
+      }
+    }
+  },
+  
+  "error_rate_limited": {
+    "protocolVersion": 1,
+    "type": "error",
+    "vehicleId": "_gateway",
+    "timestampMs": 1710700825000,
+    "gatewayTimestampMs": 1710700825000,
+    "data": {
+      "code": "RATE_LIMITED",
+      "message": "Command rate limit exceeded for ugv-husky-07 (10/sec)",
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440010"
+    }
+  },
+  
+  "error_vehicle_not_found": {
+    "protocolVersion": 1,
+    "type": "error",
+    "vehicleId": "_gateway",
+    "timestampMs": 1710700826000,
+    "gatewayTimestampMs": 1710700826000,
+    "data": {
+      "code": "VEHICLE_NOT_FOUND",
+      "message": "Unknown vehicle: ugv-phantom-99",
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440011"
+    }
+  },
+  
+  "error_protocol_version": {
+    "protocolVersion": 1,
+    "type": "error",
+    "vehicleId": "_gateway",
+    "timestampMs": 1710700827000,
+    "gatewayTimestampMs": 1710700827000,
+    "data": {
+      "code": "PROTOCOL_VERSION_UNSUPPORTED",
+      "message": "Protocol version 99 not supported",
+      "supportedVersions": [1]
+    }
+  },
+  
+  "status_transition": {
+    "protocolVersion": 1,
+    "type": "status",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700830000,
+    "gatewayTimestampMs": 1710700830000,
+    "data": {
+      "status": "standby",
+      "signalStrength": 2,
+      "source": "gateway"
+    }
+  }
+}

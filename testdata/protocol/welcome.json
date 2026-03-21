@@ -1,0 +1,69 @@
+{
+  "_comment": "Sample welcome response after hello handshake. Contains fleet bootstrap data.",
+  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  
+  "protocolVersion": 1,
+  "type": "welcome",
+  "vehicleId": "_gateway",
+  "timestampMs": 1710700800000,
+  "gatewayTimestampMs": 1710700800000,
+  "data": {
+    "gatewayVersion": "0.1.0",
+    "protocolVersion": 1,
+    "supportedVersions": [1],
+    "fleet": [
+      {
+        "id": "ugv-husky-07",
+        "name": "Husky Alpha",
+        "status": "online",
+        "environment": "ground",
+        "lastSeen": 1710700799000,
+        "capabilities": {
+          "supportedCommands": ["goto", "stop", "return_home", "set_mode", "set_speed"],
+          "supportsMissions": true,
+          "extensions": [
+            {
+              "namespace": "husky",
+              "version": 1,
+              "supportedActions": ["setDriveMode", "setBumperSensitivity"]
+            }
+          ],
+          "sensors": []
+        }
+      },
+      {
+        "id": "uav-skydio-03",
+        "name": "Skydio Bravo",
+        "status": "standby",
+        "environment": "air",
+        "lastSeen": 1710700795000,
+        "capabilities": {
+          "supportedCommands": ["goto", "stop", "return_home"],
+          "supportsMissions": true,
+          "extensions": [],
+          "sensors": []
+        }
+      }
+    ],
+    "config": {
+      "telemetryRateHz": 10,
+      "heartbeatIntervalMs": 1000
+    },
+    "availableExtensions": [
+      { "namespace": "husky", "version": 1 },
+      { "namespace": "camera", "version": 1 }
+    ],
+    "manifests": {
+      "husky": {
+        "namespace": "husky",
+        "version": "1.0",
+        "displayName": "Husky UGV Controls",
+        "commands": [
+          { "action": "setDriveMode", "label": "Set Drive Mode", "description": "Change between manual/autonomous/guided", "confirmation": false },
+          { "action": "setBumperSensitivity", "label": "Bumper Sensitivity", "description": "Adjust collision detection threshold", "confirmation": false },
+          { "action": "triggerEStop", "label": "Emergency Stop", "description": "Immediately halt all motion", "confirmation": true }
+        ]
+      }
+    }
+  }
+}

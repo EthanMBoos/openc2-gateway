@@ -1,0 +1,95 @@
+{
+  "_comment": "Sample command frames from UI to gateway.",
+  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  
+  "hello": {
+    "protocolVersion": 1,
+    "type": "hello",
+    "vehicleId": "_client",
+    "timestampMs": 1710700800000,
+    "data": {
+      "protocolVersion": 1,
+      "clientId": "ui-chrome-abc123",
+      "clientType": "ui"
+    }
+  },
+  
+  "goto": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700802000,
+    "action": "goto",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
+      "destination": {
+        "lat": 33.7760,
+        "lng": -84.3970,
+        "altMsl": 320.0
+      },
+      "speed": 0.8
+    }
+  },
+  
+  "stop": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700803000,
+    "action": "stop",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440001"
+    }
+  },
+  
+  "return_home": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700804000,
+    "action": "return_home",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440002"
+    }
+  },
+  
+  "set_mode": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700805000,
+    "action": "set_mode",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440003",
+      "mode": "autonomous"
+    }
+  },
+  
+  "set_speed": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700806000,
+    "action": "set_speed",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440004",
+      "speed": 1.5
+    }
+  },
+  
+  "extension": {
+    "protocolVersion": 1,
+    "type": "command",
+    "vehicleId": "ugv-husky-07",
+    "timestampMs": 1710700807000,
+    "action": "extension",
+    "data": {
+      "commandId": "cmd-550e8400-e29b-41d4-a716-446655440005",
+      "namespace": "husky",
+      "payload": {
+        "type": "setDriveMode",
+        "mode": "autonomous"
+      }
+    }
+  }
+}

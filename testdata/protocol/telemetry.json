@@ -1,0 +1,37 @@
+{
+  "_comment": "Sample telemetry frame from gateway to UI. Both repos validate against this.",
+  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  
+  "protocolVersion": 1,
+  "type": "telemetry",
+  "vehicleId": "ugv-husky-07",
+  "timestampMs": 1710700800000,
+  "gatewayTimestampMs": 1710700800050,
+  "data": {
+    "location": {
+      "lat": 33.7756,
+      "lng": -84.3963,
+      "altMsl": 320.5
+    },
+    "speed": 1.2,
+    "heading": 145.0,
+    "environment": "ground",
+    "seq": 42,
+    "batteryPct": 85,
+    "signalStrength": 4,
+    "supportedExtensions": ["husky", "camera"],
+    "extensions": {
+      "husky": {
+        "_version": 1,
+        "driveMode": "autonomous",
+        "batteryVoltage": 25.6,
+        "bumperContacts": {
+          "frontLeft": false,
+          "frontRight": false,
+          "rearLeft": false,
+          "rearRight": false
+        }
+      }
+    }
+  }
+}

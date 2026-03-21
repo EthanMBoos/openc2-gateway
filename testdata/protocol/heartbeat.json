@@ -1,0 +1,66 @@
+{
+  "_comment": "Sample heartbeat frame with capability advertisement.",
+  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  
+  "protocolVersion": 1,
+  "type": "heartbeat",
+  "vehicleId": "ugv-husky-07",
+  "timestampMs": 1710700801000,
+  "gatewayTimestampMs": 1710700801010,
+  "data": {
+    "uptimeMs": 3600000,
+    "vehicleType": "clearpath-husky-a200",
+    "capabilities": {
+      "supportedCommands": ["goto", "stop", "return_home", "set_mode", "set_speed"],
+      "supportsMissions": true,
+      "extensions": [
+        {
+          "namespace": "husky",
+          "version": 1,
+          "supportedActions": ["setDriveMode", "setBumperSensitivity"]
+        },
+        {
+          "namespace": "camera",
+          "version": 1,
+          "supportedActions": []
+        }
+      ],
+      "sensors": [
+        {
+          "sensorId": "front_camera",
+          "type": "camera_rgb",
+          "streamUrl": "rtsp://192.168.1.10:8554/front",
+          "mount": {
+            "x": 0.3,
+            "y": 0.0,
+            "z": 0.5,
+            "roll": 0,
+            "pitch": -15,
+            "yaw": 0
+          },
+          "metadata": {
+            "resolution": "1920x1080",
+            "fov": "90"
+          }
+        },
+        {
+          "sensorId": "lidar_1",
+          "type": "lidar_3d",
+          "streamUrl": "",
+          "mount": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.8,
+            "roll": 0,
+            "pitch": 0,
+            "yaw": 0
+          },
+          "metadata": {
+            "channels": "64",
+            "range_m": "100"
+          }
+        }
+      ]
+    }
+  }
+}
