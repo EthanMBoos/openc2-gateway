@@ -39,7 +39,7 @@ OpenC2 is a **platform**, not an application. It must support different robotics
 │  (Electron)  │   localhost:9000 │              │    239.255.0.1:14550  │ (on vehicle) │
 └──────────────┘                  └──────────────┘    239.255.0.2:14551  └──────────────┘
   Manifest-driven rendering         Codec registry                         Vehicle firmware
-  Dynamic ActionPanel buttons       Proto ↔ JSON translation
+  Dynamic CommandPanel buttons       Proto ↔ JSON translation
   Extension state in vehicleStore   Command routing + rate limiting
 ```
 

@@ -97,7 +97,7 @@ message VehicleTelemetry {
   //    → Tells UI which buttons to show
   //
   // List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
-  // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+  // Used by UI to filter CommandPanel buttons - only show commands the vehicle can handle.
   // Vehicles SHOULD populate this on every telemetry frame.
   repeated string supported_extensions = 19;
   

@@ -18,7 +18,7 @@ message VehicleTelemetry {
   // ... existing fields 1-10 ...
   
   // List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
-  // Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+  // Used by UI to filter CommandPanel buttons - only show commands the vehicle can handle.
   repeated string supported_extensions = 19;
   
   // Extension data by namespace. Each extension is versioned independently.
@@ -190,7 +190,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 
 **UI filtering:** The `supportedExtensions` array enables the UI to show only relevant commands:
 ```typescript
-// ActionPanel.tsx - filter extension commands by vehicle capabilities
+// CommandPanel.tsx - filter extension commands by vehicle capabilities
 const availableCommands = extensionCommands.filter(cmd => 
   selectedVehicle?.telemetry?.supportedExtensions?.includes(cmd.namespace)
 );
@@ -200,7 +200,7 @@ const availableCommands = extensionCommands.filter(cmd =>
 
 ## Project Manifest (MVP)
 
-Each extension ships a **manifest file** declaring its namespace and commands. For MVP, manifests are minimal — just enough for the UI to render ActionPanel buttons.
+Each extension ships a **manifest file** declaring its namespace and commands. For MVP, manifests are minimal — just enough for the UI to render CommandPanel buttons.
 
 > **Phase 2:** Dynamic telemetry panels with gauges, badges, and color scales. For MVP, hard-code extension-specific panels in the UI.
 
@@ -211,7 +211,7 @@ namespace: husky
 version: "1.0"
 displayName: "Husky UGV Controls"
 
-# Custom commands (appear in ActionPanel when vehicle supports this extension)
+# Custom commands (appear in CommandPanel when vehicle supports this extension)
 commands:
   - action: setDriveMode
     label: "Set Drive Mode"
@@ -595,12 +595,12 @@ interface VehicleInstance {
 }
 ```
 
-### Dynamic ActionPanel
+### Dynamic CommandPanel
 
 ```typescript
-// components/layout/ActionPanel.tsx
+// components/layout/CommandPanel.tsx
 
-function ActionPanel(): React.ReactElement {
+function CommandPanel(): React.ReactElement {
   const { manifests, activeProject } = useProjectStore();
   const selectedVehicle = useSelectedVehicle();
   
@@ -753,7 +753,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 | 2. Extension registry | Create `internal/extensions/` with codec interface | — | 1 day |
 | 3. Telemetry translation | Decode extensions via codecs, include in JSON | Store extension data in vehicle state | 1 day |
 | 4. First codec | Implement husky codec in-tree | Hard-coded HuskyPanel | 1 day |
-| 5. Extension commands | Route `action: "extension"` through codecs | Extension buttons in ActionPanel | 1 day |
+| 5. Extension commands | Route `action: "extension"` through codecs | Extension buttons in CommandPanel | 1 day |
 | 6. Static manifests | `/manifests` returns static JSON | Fetch on connect | 0.5 day |
 
 **Total**: ~5 days for MVP extensibility
@@ -926,8 +926,8 @@ go run ./cmd/testsender -vid sensor-01 -caps none
 **UI Impact:**
 
 ```typescript
-// ActionPanel dynamically shows/hides buttons
-function ActionPanel({ vehicle }: Props) {
+// CommandPanel dynamically shows/hides buttons
+function CommandPanel({ vehicle }: Props) {
   const caps = vehicle.capabilities;
   
   return (

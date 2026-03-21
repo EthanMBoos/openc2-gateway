@@ -15,11 +15,12 @@
 package proto
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -528,7 +529,7 @@ type VehicleTelemetry struct {
 	//     → Tells UI which buttons to show
 	//
 	// List of extension namespaces this vehicle supports (e.g., ["husky", "camera"])
-	// Used by UI to filter ActionPanel buttons - only show commands the vehicle can handle.
+	// Used by UI to filter CommandPanel buttons - only show commands the vehicle can handle.
 	// Vehicles SHOULD populate this on every telemetry frame.
 	SupportedExtensions []string `protobuf:"bytes,19,rep,name=supported_extensions,json=supportedExtensions,proto3" json:"supported_extensions,omitempty"`
 	// Extension data by namespace. Each extension is versioned independently.
