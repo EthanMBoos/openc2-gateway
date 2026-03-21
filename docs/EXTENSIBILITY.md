@@ -202,6 +202,33 @@ const availableCommands = extensionCommands.filter(cmd =>
 
 Each extension ships a **manifest file** declaring its namespace and commands. For MVP, manifests are minimal — just enough for the UI to render CommandPanel buttons.
 
+### Manifest Data Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Gateway Server (Go)                                             │
+│                                                                 │
+│  manifest.yaml ──load──▶ memory ──serialize──▶ welcome JSON     │
+│  (on disk)               (startup)              (to UI)         │
+└─────────────────────────────────────────────────────────────────┘
+                                    │
+                                    │ WebSocket
+                                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ UI Client (Electron)                                            │
+│                                                                 │
+│  welcome JSON ──parse──▶ zustand store ──render──▶ command UI   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Why this architecture:**
+- **YAML is the source of truth** — extension authors edit manifest files without touching Go code
+- **Welcome message is the transport** — UI clients don't have filesystem access to the gateway
+- **One-time transfer** — manifests are static, sent only on connect (not in heartbeats)
+- **Fail-fast validation** — gateway validates YAML at startup, not at runtime
+
+> **Future Work:** Support manifest hot-reload where users edit YAML locally, upload to the gateway via WebSocket command, and see UI changes without restarting. This enables field-editable extensions without SSH access to the gateway host.
+
 > **Phase 2:** Dynamic telemetry panels with gauges, badges, and color scales. For MVP, hard-code extension-specific panels in the UI.
 
 ```yaml

@@ -1,7 +1,13 @@
 # Skydio Extension Manifest
 #
 # Defines UI metadata for the Skydio autonomous drone extension.
-# The gateway reads this and includes it in the welcome payload.
+# The gateway reads this at startup and includes it in the welcome payload.
+#
+# EDITING THIS FILE:
+# - Changes take effect on gateway restart
+# - No Go code changes required
+# - Parameters define what form inputs the UI renders
+# - TargetMode controls single vs broadcast targeting options
 
 namespace: skydio
 version: "1.0"
@@ -10,33 +16,69 @@ displayName: "Skydio Drone Controls"
 commands:
   - command: setFlightMode
     label: "Set Flight Mode"
-    description: "Change flight behavior (hover, manual, waypoint, etc.)"
-    confirmation: false
+    description: "Change flight behavior"
+    targetMode: both
+    parameters:
+      - name: mode
+        label: "Flight Mode"
+        type: select
+        required: true
+        options:
+          - value: hover
+            label: "Hover"
+          - value: manual
+            label: "Manual"
+          - value: waypoint
+            label: "Waypoint"
+          - value: orbit
+            label: "Orbit"
 
   - command: setGimbal
     label: "Gimbal Control"
     description: "Adjust camera gimbal pitch and yaw"
-    confirmation: false
+    parameters:
+      - name: pitch
+        label: "Pitch"
+        type: number
+        min: -90
+        max: 30
+        default: 0
+      - name: yaw
+        label: "Yaw"
+        type: number
+        min: -180
+        max: 180
+        default: 0
 
   - command: startRecording
     label: "Start Recording"
     description: "Begin video recording"
-    confirmation: false
 
   - command: stopRecording
     label: "Stop Recording"
     description: "End video recording"
-    confirmation: false
 
   - command: takePhoto
     label: "Take Photo"
     description: "Capture a still image"
-    confirmation: false
+    targetMode: both  # Take photos from all drones simultaneously
 
   - command: orbit
-    label: "Orbit"
+    label: "Orbit Point"
     description: "Circle around a point of interest"
     confirmation: true
+    parameters:
+      - name: center
+        label: "Center Point"
+        type: coordinates
+        required: true
+        description: "Click on map to select orbit center"
+      - name: radius
+        label: "Radius (m)"
+        type: number
+        min: 5
+        max: 100
+        default: 20
 
   - command: track
     label: "Track Subject"
@@ -46,46 +88,45 @@ commands:
   - command: stopTracking
     label: "Stop Tracking"
     description: "End autonomous tracking"
-    confirmation: false
 
-  - command: setHome
-    label: "Set Home"
-    description: "Update the return-to-home location"
-    confirmation: true
+  - command: sendToZone
+    label: "Send to Zone"
+    description: "Fly to a designated zone on the map"
+    targetMode: both
+    parameters:
+      - name: zoneId
+        label: "Zone"
+        type: zone
+        required: true
+        description: "Select a zone from the map"
+      - name: altitude
+        label: "Altitude (m)"
+        type: number
+        min: 10
+        max: 120
+        default: 30
+        description: "Flight altitude above ground"
 
+# Telemetry fields (for future dynamic panel rendering)
 telemetryFields:
   - name: flightMode
     label: "Flight Mode"
     type: string
 
   - name: gpsFixQuality
-    label: "GPS Fix"
+    label: "GPS Quality"
     type: number
-    range: [0, 5]
 
   - name: satellites
     label: "Satellites"
     type: number
-
-  - name: remainingFlightTimeSec
-    label: "Flight Time Remaining"
-    type: number
-    unit: "sec"
 
   - name: windSpeedMs
     label: "Wind Speed"
     type: number
     unit: "m/s"
 
-  - name: gimbal.pitchDeg
-    label: "Gimbal Pitch"
+  - name: remainingFlightTimeSec
+    label: "Flight Time Remaining"
     type: number
-    unit: "°"
-
-  - name: recording.isRecording
-    label: "Recording"
-    type: boolean
-
-  - name: obstacleAvoidance.enabled
-    label: "Obstacle Avoidance"
-    type: boolean
+    unit: "s"

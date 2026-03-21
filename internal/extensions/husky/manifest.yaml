@@ -1,7 +1,13 @@
 # Husky Extension Manifest
 #
 # Defines UI metadata for the Husky UGV extension.
-# The gateway reads this and includes it in the welcome payload.
+# The gateway reads this at startup and includes it in the welcome payload.
+#
+# EDITING THIS FILE:
+# - Changes take effect on gateway restart
+# - No Go code changes required
+# - Parameters define what form inputs the UI renders
+# - TargetMode controls single vs broadcast targeting options
 
 namespace: husky
 version: "1.0"
@@ -11,43 +17,75 @@ commands:
   - command: setDriveMode
     label: "Set Drive Mode"
     description: "Change between manual, autonomous, or guided control"
-    confirmation: false
-    
+    targetMode: both  # Let operator choose single vehicle or all huskies
+    parameters:
+      - name: mode
+        label: "Drive Mode"
+        type: select
+        required: true
+        options:
+          - value: manual
+            label: "Manual"
+          - value: autonomous
+            label: "Autonomous"
+          - value: guided
+            label: "Guided"
+
   - command: setBumperSensitivity
     label: "Bumper Sensitivity"
-    description: "Adjust collision detection threshold (0-100)"
-    confirmation: false
-    
+    description: "Adjust collision detection threshold"
+    parameters:
+      - name: sensitivity
+        label: "Sensitivity"
+        type: number
+        required: true
+        min: 0
+        max: 100
+        default: 50
+
   - command: triggerEStop
     label: "Emergency Stop"
     description: "Immediately halt all motion (software E-Stop)"
     confirmation: true
-    
+    targetMode: both  # E-Stop all vehicles is a valid use case
+
   - command: releaseEStop
     label: "Release E-Stop"
     description: "Clear software E-Stop (hardware E-Stop must be cleared manually)"
     confirmation: true
 
+  - command: sendToZone
+    label: "Send to Zone"
+    description: "Navigate to a designated zone on the map"
+    targetMode: both  # Send one or all vehicles to a zone
+    parameters:
+      - name: zoneId
+        label: "Zone"
+        type: zone
+        required: true
+        description: "Select a zone from the map"
+
+# Telemetry fields (for future dynamic panel rendering)
 telemetryFields:
   - name: driveMode
     label: "Drive Mode"
     type: string
-    
+
   - name: batteryVoltage
     label: "Battery Voltage"
     type: number
     unit: "V"
-    
+
   - name: motorTempLeftC
     label: "Left Motor Temp"
     type: number
     unit: "°C"
-    
+
   - name: motorTempRightC
     label: "Right Motor Temp"
     type: number
     unit: "°C"
-    
+
   - name: estopEngaged
     label: "E-Stop"
     type: boolean

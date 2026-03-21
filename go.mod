@@ -8,4 +8,7 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require golang.org/x/sys v0.42.0 // indirect
+require (
+	golang.org/x/sys v0.42.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
