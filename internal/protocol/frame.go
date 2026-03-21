@@ -323,11 +323,56 @@ type HelloPayload struct {
 }
 
 // WelcomePayload is sent by gateway in response to hello.
+//
+// EXTENSION DISCOVERY FLOW:
+// The gateway is the single source of truth for what extensions exist. On startup,
+// codecs self-register via init() and the gateway collects their namespaces/versions.
+// When a UI connects:
+//
+//  1. Gateway sends `welcome` with:
+//     - AvailableExtensions: namespaces the gateway can decode (from registered codecs)
+//     - Manifests: UI metadata per extension (commands, labels, confirmation flags)
+//
+//  2. Vehicles advertise which extensions they support via `supportedExtensions` in telemetry
+//
+//  3. UI filters command buttons by: gateway.available ∩ vehicle.supported
+//     - A button only appears if BOTH gateway can route it AND vehicle can execute it
+//
+// This decouples extension releases from gateway releases — adding a new extension
+// is a single codec import in cmd/gateway/main.go, no config files needed.
+//
+// See docs/EXTENSIBILITY.md for the full extension architecture.
 type WelcomePayload struct {
-	GatewayVersion  string           `json:"gatewayVersion"`
-	ProtocolVersion int              `json:"protocolVersion"`
-	Fleet           []VehicleSummary `json:"fleet"`
-	Config          WelcomeConfig    `json:"config"`
+	GatewayVersion      string                       `json:"gatewayVersion"`
+	ProtocolVersion     int                          `json:"protocolVersion"`
+	Fleet               []VehicleSummary             `json:"fleet"`
+	Config              WelcomeConfig                `json:"config"`
+	AvailableExtensions []AvailableExtension         `json:"availableExtensions,omitempty"` // Extensions the gateway can decode
+	Manifests           map[string]ExtensionManifest `json:"manifests,omitempty"`           // Full manifest per extension namespace
+}
+
+// AvailableExtension describes an extension the gateway can decode.
+// Collected from registered codecs at startup.
+type AvailableExtension struct {
+	Namespace string `json:"namespace"` // Extension namespace (e.g., "husky")
+	Version   uint32 `json:"version"`   // Schema version supported by this codec
+}
+
+// ExtensionManifest describes an extension's UI integration.
+// Sent to UI so it can render command buttons without hardcoding.
+type ExtensionManifest struct {
+	Namespace   string                       `json:"namespace"`
+	Version     string                       `json:"version"`     // Semantic version (e.g., "1.0.0")
+	DisplayName string                       `json:"displayName"` // Human-readable name
+	Commands    []ExtensionCommandDefinition `json:"commands"`    // Available commands
+}
+
+// ExtensionCommandDefinition describes a command within an extension.
+type ExtensionCommandDefinition struct {
+	Action       string  `json:"action"`                 // Action identifier (e.g., "setDriveMode")
+	Label        string  `json:"label"`                  // UI button label
+	Description  *string `json:"description,omitempty"`  // Tooltip text
+	Confirmation bool    `json:"confirmation,omitempty"` // Requires user confirmation before sending
 }
 
 // WelcomeConfig contains gateway configuration shared with clients.
