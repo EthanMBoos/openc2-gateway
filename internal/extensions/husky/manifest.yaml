@@ -1,0 +1,53 @@
+# Husky Extension Manifest
+#
+# Defines UI metadata for the Husky UGV extension.
+# The gateway reads this and includes it in the welcome payload.
+
+namespace: husky
+version: "1.0"
+displayName: "Husky UGV Controls"
+
+commands:
+  - command: setDriveMode
+    label: "Set Drive Mode"
+    description: "Change between manual, autonomous, or guided control"
+    confirmation: false
+    
+  - command: setBumperSensitivity
+    label: "Bumper Sensitivity"
+    description: "Adjust collision detection threshold (0-100)"
+    confirmation: false
+    
+  - command: triggerEStop
+    label: "Emergency Stop"
+    description: "Immediately halt all motion (software E-Stop)"
+    confirmation: true
+    
+  - command: releaseEStop
+    label: "Release E-Stop"
+    description: "Clear software E-Stop (hardware E-Stop must be cleared manually)"
+    confirmation: true
+
+telemetryFields:
+  - name: driveMode
+    label: "Drive Mode"
+    type: string
+    
+  - name: batteryVoltage
+    label: "Battery Voltage"
+    type: number
+    unit: "V"
+    
+  - name: motorTempLeftC
+    label: "Left Motor Temp"
+    type: number
+    unit: "°C"
+    
+  - name: motorTempRightC
+    label: "Right Motor Temp"
+    type: number
+    unit: "°C"
+    
+  - name: estopEngaged
+    label: "E-Stop"
+    type: boolean

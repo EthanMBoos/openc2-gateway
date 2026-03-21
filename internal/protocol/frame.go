@@ -370,7 +370,7 @@ type ExtensionManifest struct {
 
 // ExtensionCommandDefinition describes a command within an extension.
 type ExtensionCommandDefinition struct {
-	Action       string  `json:"action"`                 // Action identifier (e.g., "setDriveMode")
+	Command      string  `json:"command"`                // Command identifier (e.g., "setDriveMode")
 	Label        string  `json:"label"`                  // UI button label
 	Description  *string `json:"description,omitempty"`  // Tooltip text
 	Confirmation bool    `json:"confirmation,omitempty"` // Requires user confirmation before sending

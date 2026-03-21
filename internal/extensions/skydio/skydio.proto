@@ -1,0 +1,172 @@
+// Skydio UAV Extension Protocol
+//
+// Extension telemetry and command definitions for Skydio autonomous drones.
+// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+//
+// See docs/EXTENSIBILITY.md for extension architecture.
+
+syntax = "proto3";
+
+package skydio;
+
+option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/skydio";
+
+// ============================================================================
+// Telemetry (Vehicle → Gateway)
+// ============================================================================
+
+// SkydioTelemetry contains Skydio-specific state sent in VehicleTelemetry.extensions["skydio"].
+message SkydioTelemetry {
+  // Current flight mode
+  FlightMode flight_mode = 1;
+  
+  // GPS fix quality (0-5, 5 = RTK fix)
+  uint32 gps_fix_quality = 2;
+  
+  // Number of satellites tracked
+  uint32 satellites = 3;
+  
+  // Gimbal orientation
+  GimbalState gimbal = 4;
+  
+  // Obstacle avoidance status
+  ObstacleAvoidance obstacle_avoidance = 5;
+  
+  // Recording state
+  RecordingState recording = 6;
+  
+  // Wind estimate in m/s
+  float wind_speed_ms = 7;
+  
+  // Wind direction in degrees (0 = from North)
+  float wind_direction_deg = 8;
+  
+  // Remaining flight time estimate in seconds
+  uint32 remaining_flight_time_sec = 9;
+  
+  // Motor temperatures in Celsius (4 motors)
+  repeated float motor_temps_c = 10;
+  
+  // Home location (where it will return to)
+  HomeLocation home = 11;
+  
+  // Current tracking target (if in TRACK mode)
+  TrackingTarget tracking_target = 12;
+}
+
+// FlightMode represents the drone's current flight behavior.
+enum FlightMode {
+  FLIGHT_MODE_UNKNOWN = 0;
+  FLIGHT_MODE_IDLE = 1; // Motors off, on ground
+  FLIGHT_MODE_HOVER = 2; // Stationary hover
+  FLIGHT_MODE_MANUAL = 3; // Direct pilot control
+  FLIGHT_MODE_WAYPOINT = 4; // Flying to waypoint
+  FLIGHT_MODE_ORBIT = 5; // Orbiting a point of interest
+  FLIGHT_MODE_TRACK = 6; // Autonomous subject tracking
+  FLIGHT_MODE_CABLE_CAM = 7; // Virtual cable cam path
+  FLIGHT_MODE_RETURN_HOME = 8; // Returning to home location
+  FLIGHT_MODE_LANDING = 9; // Landing sequence
+  FLIGHT_MODE_EMERGENCY = 10; // Emergency descent
+}
+
+// GimbalState reports camera gimbal orientation.
+message GimbalState {
+  float pitch_deg = 1; // -90 (down) to +30 (up)
+  float yaw_deg = 2; // Relative to vehicle heading
+  float roll_deg = 3; // Usually stabilized to 0
+}
+
+// ObstacleAvoidance reports the state of collision avoidance systems.
+message ObstacleAvoidance {
+  bool enabled = 1;
+  bool front_clear = 2;
+  bool rear_clear = 3;
+  bool left_clear = 4;
+  bool right_clear = 5;
+  bool above_clear = 6;
+  bool below_clear = 7;
+  float closest_obstacle_m = 8; // Distance to nearest obstacle
+}
+
+// RecordingState reports camera recording status.
+message RecordingState {
+  bool is_recording = 1;
+  uint32 recording_duration_sec = 2;
+  uint32 storage_remaining_mb = 3;
+  string current_resolution = 4; // e.g., "4K60", "1080p120"
+}
+
+// HomeLocation is where the drone will return on RTH.
+message HomeLocation {
+  double latitude = 1;
+  double longitude = 2;
+  float altitude_msl_m = 3;
+}
+
+// TrackingTarget describes the current tracking subject.
+message TrackingTarget {
+  bool active = 1;
+  float confidence = 2; // 0.0 - 1.0 tracking confidence
+  float distance_m = 3; // Distance to target
+  float bearing_deg = 4; // Bearing to target from drone
+  string target_type = 5; // "person", "vehicle", "boat", etc.
+}
+
+// ============================================================================
+// Commands (Gateway → Vehicle)
+// ============================================================================
+
+// SetFlightModeCommand changes the flight mode.
+message SetFlightModeCommand {
+  FlightMode mode = 1;
+}
+
+// SetGimbalCommand adjusts camera gimbal orientation.
+message SetGimbalCommand {
+  float pitch_deg = 1; // -90 to +30
+  float yaw_deg = 2; // Relative to heading, or absolute if use_absolute_yaw is true
+  bool use_absolute_yaw = 3;
+}
+
+// StartRecordingCommand begins video recording.
+message StartRecordingCommand {
+  string resolution = 1; // "4K60", "4K30", "1080p120", "1080p60"
+}
+
+// StopRecordingCommand stops video recording.
+message StopRecordingCommand {
+  // Empty
+}
+
+// TakePhotoCommand captures a still image.
+message TakePhotoCommand {
+  // Empty
+}
+
+// OrbitCommand starts orbiting a point of interest.
+message OrbitCommand {
+  double center_lat = 1;
+  double center_lng = 2;
+  float radius_m = 3;
+  float altitude_m = 4; // Altitude above ground
+  float speed_ms = 5; // Orbit speed
+  bool clockwise = 6;
+}
+
+// TrackCommand starts tracking a subject.
+message TrackCommand {
+  // Screen coordinates of target to track (normalized 0-1)
+  float screen_x = 1;
+  float screen_y = 2;
+}
+
+// StopTrackingCommand stops autonomous tracking.
+message StopTrackingCommand {
+  // Empty
+}
+
+// SetHomeCommand updates the home location.
+message SetHomeCommand {
+  double latitude = 1;
+  double longitude = 2;
+}

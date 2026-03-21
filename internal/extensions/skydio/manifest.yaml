@@ -1,0 +1,91 @@
+# Skydio Extension Manifest
+#
+# Defines UI metadata for the Skydio autonomous drone extension.
+# The gateway reads this and includes it in the welcome payload.
+
+namespace: skydio
+version: "1.0"
+displayName: "Skydio Drone Controls"
+
+commands:
+  - command: setFlightMode
+    label: "Set Flight Mode"
+    description: "Change flight behavior (hover, manual, waypoint, etc.)"
+    confirmation: false
+
+  - command: setGimbal
+    label: "Gimbal Control"
+    description: "Adjust camera gimbal pitch and yaw"
+    confirmation: false
+
+  - command: startRecording
+    label: "Start Recording"
+    description: "Begin video recording"
+    confirmation: false
+
+  - command: stopRecording
+    label: "Stop Recording"
+    description: "End video recording"
+    confirmation: false
+
+  - command: takePhoto
+    label: "Take Photo"
+    description: "Capture a still image"
+    confirmation: false
+
+  - command: orbit
+    label: "Orbit"
+    description: "Circle around a point of interest"
+    confirmation: true
+
+  - command: track
+    label: "Track Subject"
+    description: "Begin autonomous subject tracking"
+    confirmation: true
+
+  - command: stopTracking
+    label: "Stop Tracking"
+    description: "End autonomous tracking"
+    confirmation: false
+
+  - command: setHome
+    label: "Set Home"
+    description: "Update the return-to-home location"
+    confirmation: true
+
+telemetryFields:
+  - name: flightMode
+    label: "Flight Mode"
+    type: string
+
+  - name: gpsFixQuality
+    label: "GPS Fix"
+    type: number
+    range: [0, 5]
+
+  - name: satellites
+    label: "Satellites"
+    type: number
+
+  - name: remainingFlightTimeSec
+    label: "Flight Time Remaining"
+    type: number
+    unit: "sec"
+
+  - name: windSpeedMs
+    label: "Wind Speed"
+    type: number
+    unit: "m/s"
+
+  - name: gimbal.pitchDeg
+    label: "Gimbal Pitch"
+    type: number
+    unit: "°"
+
+  - name: recording.isRecording
+    label: "Recording"
+    type: boolean
+
+  - name: obstacleAvoidance.enabled
+    label: "Obstacle Avoidance"
+    type: boolean

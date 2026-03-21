@@ -1,0 +1,80 @@
+// Husky UGV Extension Protocol
+//
+// Extension telemetry and command definitions for Clearpath Husky A200 UGV.
+// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+//
+// See docs/EXTENSIBILITY.md for extension architecture.
+
+syntax = "proto3";
+
+package husky;
+
+option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky";
+
+// ============================================================================
+// Telemetry (Vehicle → Gateway)
+// ============================================================================
+
+// HuskyTelemetry contains Husky-specific state sent in VehicleTelemetry.extensions["husky"].
+message HuskyTelemetry {
+  // Current drive mode
+  DriveMode drive_mode = 1;
+  
+  // Battery voltage in volts (typically 24-30V for Husky)
+  float battery_voltage = 2;
+  
+  // Bumper contact states
+  BumperContacts bumper_contacts = 3;
+  
+  // Motor temperatures in Celsius (left, right)
+  float motor_temp_left_c = 4;
+  float motor_temp_right_c = 5;
+  
+  // Wheel odometry in meters since boot
+  float odometry_left_m = 6;
+  float odometry_right_m = 7;
+  
+  // E-Stop engaged (hardware or software)
+  bool estop_engaged = 8;
+}
+
+// DriveMode represents the vehicle's current control mode.
+enum DriveMode {
+  DRIVE_MODE_UNKNOWN = 0;
+  DRIVE_MODE_MANUAL = 1; // Direct teleop control
+  DRIVE_MODE_AUTONOMOUS = 2; // Self-driving to waypoints
+  DRIVE_MODE_GUIDED = 3; // External guidance (ROS nav stack)
+}
+
+// BumperContacts reports physical contact on each bumper.
+message BumperContacts {
+  bool front_left = 1;
+  bool front_right = 2;
+  bool rear_left = 3;
+  bool rear_right = 4;
+}
+
+// ============================================================================
+// Commands (Gateway → Vehicle)
+// ============================================================================
+
+// SetDriveModeCommand changes the drive mode.
+message SetDriveModeCommand {
+  DriveMode mode = 1;
+}
+
+// SetBumperSensitivityCommand adjusts collision detection threshold.
+message SetBumperSensitivityCommand {
+  // Sensitivity level 0-100 (0 = disabled, 100 = most sensitive)
+  uint32 sensitivity = 1;
+}
+
+// TriggerEStopCommand engages the software E-Stop.
+message TriggerEStopCommand {
+  // Empty - presence of message triggers E-Stop
+}
+
+// ReleaseEStopCommand releases the software E-Stop (hardware E-Stop must be cleared manually).
+message ReleaseEStopCommand {
+  // Empty
+}
