@@ -143,7 +143,8 @@ func HeartbeatToFrame(msg *pb.Heartbeat) (*Frame, error) {
 	}
 
 	payload := HeartbeatPayload{
-		UptimeMs: msg.UptimeMs,
+		UptimeMs:    msg.UptimeMs,
+		VehicleType: msg.VehicleType,
 	}
 
 	// Translate capabilities if present

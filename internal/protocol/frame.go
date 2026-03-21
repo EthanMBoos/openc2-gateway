@@ -101,6 +101,7 @@ const (
 // HeartbeatPayload contains connection health data.
 type HeartbeatPayload struct {
 	UptimeMs     int64                `json:"uptimeMs"`               // Vehicle uptime in milliseconds
+	VehicleType  string               `json:"vehicleType,omitempty"`  // Type identifier for UI auto-matching (e.g., "clearpath-husky-a200")
 	Capabilities *VehicleCapabilities `json:"capabilities,omitempty"` // What this vehicle supports
 }
 
