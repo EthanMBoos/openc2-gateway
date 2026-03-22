@@ -33,7 +33,7 @@ sleep 1
 
 # Start test senders
 VEHICLE_TYPES=("ugv" "uav" "usv" "ugv" "uav")
-ENVS=("ground" "air" "surface" "ground" "air")
+ENVS=("ground" "air" "marine" "ground" "air")
 
 for i in $(seq 1 $VEHICLE_COUNT); do
     idx=$((($i - 1) % 5))

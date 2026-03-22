@@ -347,8 +347,8 @@ func environmentToString(e pb.VehicleEnvironment) string {
 		return EnvAir
 	case pb.VehicleEnvironment_ENV_GROUND:
 		return EnvGround
-	case pb.VehicleEnvironment_ENV_SURFACE:
-		return EnvSurface
+	case pb.VehicleEnvironment_ENV_MARINE:
+		return EnvMarine
 	default:
 		return EnvUnknown
 	}
@@ -360,8 +360,8 @@ func stringToEnvironment(s string) pb.VehicleEnvironment {
 		return pb.VehicleEnvironment_ENV_AIR
 	case EnvGround:
 		return pb.VehicleEnvironment_ENV_GROUND
-	case EnvSurface:
-		return pb.VehicleEnvironment_ENV_SURFACE
+	case EnvMarine:
+		return pb.VehicleEnvironment_ENV_MARINE
 	default:
 		return pb.VehicleEnvironment_ENV_UNKNOWN
 	}

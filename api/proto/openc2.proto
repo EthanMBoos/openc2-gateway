@@ -144,9 +144,9 @@ enum VehicleStatus {
 // Operating environment/domain
 enum VehicleEnvironment {
   ENV_UNKNOWN = 0;
-  ENV_AIR = 1;
-  ENV_GROUND = 2;
-  ENV_SURFACE = 3; // Water surface
+  ENV_AIR = 1; // Aerial vehicles (UAV, drones)
+  ENV_GROUND = 2; // Ground vehicles (UGV, rovers)
+  ENV_MARINE = 3; // Marine/water surface vessels (USV, boats)
 }
 
 // Heartbeat message sent periodically to confirm connectivity

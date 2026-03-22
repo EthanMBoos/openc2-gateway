@@ -117,7 +117,7 @@
 |---------|----------|------|
 | Aerial | `ENV_AIR` | `"air"` |
 | Ground | `ENV_GROUND` | `"ground"` |
-| Surface | `ENV_SURFACE` | `"surface"` |
+| Marine | `ENV_MARINE` | `"marine"` |
 
 ---
 

@@ -71,8 +71,8 @@ go run ./cmd/testsender -vid ugv-husky-07
 # UAV at 20Hz
 go run ./cmd/testsender -vid uav-quad-01 -env air -rate 20
 
-# Surface vehicle
-go run ./cmd/testsender -vid usv-boat-01 -env surface
+# Marine vehicle (USV)
+go run ./cmd/testsender -vid usv-boat-01 -env marine
 
 # Observation-only vehicle (no commands accepted)
 go run ./cmd/testsender -vid sensor-01 -caps none
@@ -86,7 +86,7 @@ go run ./cmd/testsender -vid ugv-custom -caps no-stop
 | Flag | Default | Options |
 |---|---|---|
 | `-vid` | `ugv-test-01` | Any string — used as vehicle ID |
-| `-env` | `ground` | `ground`, `air`, `surface` |
+| `-env` | `ground` | `ground`, `air`, `marine` |
 | `-group` | `239.255.0.1` | Multicast group to send on |
 | `-port` | `14550` | UDP port to send on |
 | `-rate` | `10` | Telemetry Hz |

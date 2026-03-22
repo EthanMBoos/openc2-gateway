@@ -289,7 +289,7 @@ go test ./... -v
 ```bash
 go run ./cmd/testsender --help
 # -vid string      Vehicle ID (default "ugv-test-01")
-# -env string      Environment: ground, air, surface (default "ground")
+# -env string      Environment: ground, air, marine
 # -group string    Multicast group (default "239.255.0.1")
 # -port int        Multicast port (default 14550)
 # -rate int        Telemetry rate in Hz (default 10)
@@ -299,7 +299,7 @@ go run ./cmd/testsender --help
 ```bash
 go run ./cmd/testsender -vid ugv-alpha -env ground &
 go run ./cmd/testsender -vid uav-bravo -env air &
-go run ./cmd/testsender -vid usv-charlie -env surface &
+go run ./cmd/testsender -vid usv-charlie -env marine &
 ```
 
 **Stress Test (high rate):**

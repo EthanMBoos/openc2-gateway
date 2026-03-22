@@ -373,7 +373,7 @@ Vehicles MUST implement one of the following failsafe modes, configured via `OPE
 | `CONTINUE` | Continue current mission autonomously | Pre-planned autonomous missions |
 | `LAND` | Immediate landing (aerial only) | Low-battery or critical ops |
 
-**Default:** `RTL` for aerial vehicles, `HOLD` for ground/surface vehicles.
+**Default:** `RTL` for aerial vehicles, `HOLD` for ground/marine vehicles.
 
 ### State Diagram (Vehicle Perspective)
 

@@ -122,7 +122,7 @@ func TestEnvironmentToString(t *testing.T) {
 	}{
 		{pb.VehicleEnvironment_ENV_AIR, "air"},
 		{pb.VehicleEnvironment_ENV_GROUND, "ground"},
-		{pb.VehicleEnvironment_ENV_SURFACE, "surface"},
+		{pb.VehicleEnvironment_ENV_MARINE, "marine"},
 		{pb.VehicleEnvironment_ENV_UNKNOWN, "unknown"},
 	}
 

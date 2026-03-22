@@ -40,7 +40,7 @@ const (
 type Vehicle struct {
 	ID           string
 	Name         string                        // Display name (from config or derived from ID)
-	Environment  string                        // air, ground, surface
+	Environment  string                        // air, ground, marine
 	Status       Status                        // Current operational status
 	LastSeen     time.Time                     // Last telemetry received
 	FirstSeen    time.Time                     // When vehicle was first discovered
