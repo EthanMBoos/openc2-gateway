@@ -1,0 +1,106 @@
+# BlueBoat Extension Manifest
+#
+# Defines UI metadata for the BlueRobotics BlueBoat USV extension.
+# The gateway reads this at startup and includes it in the welcome payload.
+#
+# EDITING THIS FILE:
+# - Changes take effect on gateway restart
+# - No Go code changes required
+# - Parameters define what form inputs the UI renders
+# - TargetMode controls single vs broadcast targeting options
+
+namespace: blueboat
+version: "1.0"
+displayName: "BlueBoat USV Controls"
+
+commands:
+  - command: setNavMode
+    label: "Set Nav Mode"
+    description: "Change navigation behavior"
+    targetMode: both
+    parameters:
+      - name: mode
+        label: "Navigation Mode"
+        type: select
+        required: true
+        options:
+          - value: manual
+            label: "Manual"
+          - value: hold
+            label: "Station Hold"
+          - value: waypoint
+            label: "Waypoint"
+          - value: survey
+            label: "Survey Pattern"
+          - value: loiter
+            label: "Loiter"
+          - value: returnHome
+            label: "Return to Dock"
+
+  - command: startSurvey
+    label: "Start Survey"
+    description: "Begin autonomous survey pattern over a search zone"
+    confirmation: true
+    parameters:
+      - name: zoneId
+        label: "Search Zone"
+        type: zone
+        required: true
+        description: "Select a search zone from the map"
+      - name: laneSpacingM
+        label: "Lane Spacing (m)"
+        type: number
+        min: 1
+        max: 100
+        default: 10
+      - name: speedMs
+        label: "Speed (m/s)"
+        type: number
+        min: 0.1
+        max: 3
+        default: 1
+
+  - command: setDock
+    label: "Set Dock Location"
+    description: "Update the home/dock return location"
+    parameters:
+      - name: dockLocation
+        label: "Dock"
+        type: coordinates
+        required: true
+        description: "Click on map to set dock location"
+
+  - command: sendToZone
+    label: "Send to Zone"
+    description: "Navigate to a designated zone on the map"
+    targetMode: both
+    parameters:
+      - name: zoneId
+        label: "Zone"
+        type: zone
+        required: true
+
+# Telemetry fields (for future dynamic panel rendering)
+telemetryFields:
+  - name: navMode
+    label: "Nav Mode"
+    type: string
+
+  - name: waterDepthM
+    label: "Water Depth"
+    type: number
+    unit: "m"
+
+  - name: battery.percentage
+    label: "Battery"
+    type: number
+    unit: "%"
+
+  - name: rangeRemainingM
+    label: "Range"
+    type: number
+    unit: "m"
+
+  - name: gpsFixQuality
+    label: "GPS Fix"
+    type: number

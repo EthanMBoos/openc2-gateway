@@ -1,0 +1,107 @@
+// BlueBoat USV Extension Protocol
+//
+// Extension telemetry and command definitions for BlueRobotics BlueBoat USV.
+// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+//
+// See docs/EXTENSIBILITY.md for extension architecture.
+
+syntax = "proto3";
+
+package blueboat;
+
+option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/blueboat";
+
+// ============================================================================
+// Telemetry (Vehicle → Gateway)
+// ============================================================================
+
+// BlueboatTelemetry contains BlueBoat-specific state sent in VehicleTelemetry.extensions["blueboat"].
+message BlueboatTelemetry {
+  // Current navigation mode
+  NavMode nav_mode = 1;
+  
+  // Water depth below hull in meters (from sonar/depth sensor)
+  float water_depth_m = 2;
+  
+  // Battery state
+  BatteryState battery = 3;
+  
+  // Thruster status (dual thruster configuration)
+  ThrusterStatus thrusters = 4;
+  
+  // GPS fix quality (0-5, 5 = RTK fix)
+  uint32 gps_fix_quality = 5;
+  
+  // Number of satellites tracked
+  uint32 satellites = 6;
+  
+  // Current draw total in Amps
+  float current_draw_a = 7;
+  
+  // Estimated range remaining in meters
+  float range_remaining_m = 8;
+  
+  // Wind speed from onboard anemometer in m/s
+  float wind_speed_ms = 9;
+  
+  // Home/dock location
+  DockLocation dock = 10;
+}
+
+// NavMode represents the boat's current navigation mode.
+enum NavMode {
+  NAV_MODE_UNKNOWN = 0;
+  NAV_MODE_MANUAL = 1; // Direct RC/teleop control
+  NAV_MODE_HOLD = 2; // Station keeping (hold position)
+  NAV_MODE_WAYPOINT = 3; // Autonomous waypoint navigation
+  NAV_MODE_SURVEY = 4; // Survey pattern (lawn mower)
+  NAV_MODE_RETURN_HOME = 5; // Returning to dock/home
+  NAV_MODE_LOITER = 6; // Circling at location
+  NAV_MODE_DOCKING = 7; // Autonomous docking sequence
+}
+
+// BatteryState reports battery pack status.
+message BatteryState {
+  float voltage = 1; // Pack voltage
+  float percentage = 2; // State of charge 0-100
+  float temp_c = 3; // Battery temperature
+  uint32 cycles = 4; // Charge cycles
+}
+
+// ThrusterStatus reports dual thruster health.
+message ThrusterStatus {
+  float left_rpm = 1; // Left thruster RPM
+  float right_rpm = 2; // Right thruster RPM
+  float left_temp_c = 3; // Left thruster motor temp
+  float right_temp_c = 4; // Right thruster motor temp
+  bool left_fault = 5; // Left thruster fault
+  bool right_fault = 6; // Right thruster fault
+}
+
+// DockLocation is where the boat will return on RTH.
+message DockLocation {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+// ============================================================================
+// Commands (Gateway → Vehicle)
+// ============================================================================
+
+// SetNavModeCommand changes the navigation mode.
+message SetNavModeCommand {
+  NavMode mode = 1;
+}
+
+// StartSurveyCommand begins a survey pattern over a search zone.
+message StartSurveyCommand {
+  string zone_id = 1; // Reference to searchZone on map
+  float lane_spacing_m = 2; // Distance between survey lanes
+  float speed_ms = 3; // Survey speed
+}
+
+// SetDockCommand sets the home/dock location.
+message SetDockCommand {
+  double latitude = 1;
+  double longitude = 2;
+}
