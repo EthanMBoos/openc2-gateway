@@ -122,11 +122,13 @@ go run ./cmd/gateway
 
 **Test: Basic Connection**
 ```bash
-# Terminal 1: Start gateway and testsender
-go run ./cmd/gateway &
-go run ./cmd/testsender -vid ugv-test-01 &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# Terminal 2: Connect with testclient
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-test-01
+
+# Terminal 3: Connect with testclient
 go run ./cmd/testclient
 
 # Expected output:
@@ -135,27 +137,29 @@ go run ./cmd/testclient
 # ✓ Received welcome (type=welcome)
 # ✓ Reading telemetry frames...
 
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway; pkill -f testsender; pkill -f testclient
 ```
 
 **Test: Multiple Clients**
 ```bash
-# Terminal 1: Start gateway and testsender
-go run ./cmd/gateway &
-go run ./cmd/testsender -vid ugv-test-01 &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# Terminal 2 & 3: Connect two clients (stay connected for 30s)
-go run ./cmd/testclient -duration 30s &
-go run ./cmd/testclient -duration 30s &
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-test-01
 
-# Check health endpoint shows 2 clients:
+# Terminal 3 & 4: Connect two clients (stay connected for 30s)
+go run ./cmd/testclient -duration 30s
+go run ./cmd/testclient -duration 30s
+
+# Terminal 5 (or any): Check health endpoint shows 2 clients
 curl http://localhost:9000/healthz
 # {"clients":2,"status":"ok"}
 
 # Both clients receive telemetry until duration expires
 
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway; pkill -f testsender; pkill -f testclient
 ```
 
@@ -178,7 +182,10 @@ pkill -f gateway; pkill -f testsender; pkill -f testclient
 
 **Test: Protocol Version Mismatch**
 ```bash
-go run ./cmd/gateway &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2: Run testclient with bad version
 go run ./cmd/testclient -bad-version
 
 # Expected output:
@@ -188,13 +195,16 @@ go run ./cmd/testclient -bad-version
 #   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
 # ✓ Received expected PROTOCOL_VERSION_UNSUPPORTED error
 
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway
 ```
 
 **Test: Missing Hello**
 ```bash
-go run ./cmd/gateway &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2: Run testclient skipping hello
 go run ./cmd/testclient -skip-hello
 
 # Expected output:
@@ -204,7 +214,7 @@ go run ./cmd/testclient -skip-hello
 #   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
 # ✓ Received expected INVALID_MESSAGE error
 
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway
 ```
 
@@ -285,6 +295,8 @@ go test ./... -v
 
 #### Testsender Usage
 
+> **Note:** The gateway must be running first (`go run ./cmd/gateway` in a separate terminal) for testsender telemetry to be received and broadcast to clients.
+
 **Command Line Options:**
 ```bash
 go run ./cmd/testsender --help
@@ -297,14 +309,28 @@ go run ./cmd/testsender --help
 
 **Multiple Vehicles:**
 ```bash
-go run ./cmd/testsender -vid ugv-alpha -env ground &
-go run ./cmd/testsender -vid uav-bravo -env air &
-go run ./cmd/testsender -vid usv-charlie -env marine &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminals 2, 3, 4: Start multiple testsenders
+go run ./cmd/testsender -vid ugv-alpha -env ground
+go run ./cmd/testsender -vid uav-bravo -env air
+go run ./cmd/testsender -vid usv-charlie -env marine
+
+# Cleanup (any terminal):
+pkill -f gateway; pkill -f testsender
 ```
 
 **Stress Test (high rate):**
 ```bash
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2: Start high-rate testsender
 go run ./cmd/testsender -vid stress-test -rate 100
+
+# Cleanup (any terminal):
+pkill -f gateway; pkill -f testsender
 ```
 
 ---
@@ -341,135 +367,182 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 - Converts JSON to protobuf Command message
 - Broadcasts via UDP multicast to `239.255.0.2:14551`
 
-**Test: Basic Command Flow (Manual)**
+**Test: Basic Command Flow**
+
+> **Prerequisite:** Install `websocat` for interactive WebSocket testing.
+
 ```bash
-# This requires a custom WebSocket client or browser extension
-# Send command after hello/welcome:
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# 1. Connect to ws://localhost:9000
-# 2. Send hello: {"protocolVersion": 1,"type":"hello","vehicleId": "_client","timestampMs": 0,"data":{"protocolVersion":1,"clientId":"cmd-test"}}
-# 3. Receive welcome
-# 4. Send command:
-{
-  "protocolVersion": 1,
-  "type": "command",
-  "vehicleId": "ugv-husky-01",
-  "timestampMs": 1710700800000,
-  "data": {
-    "action": "stop",
-    "commandId": "cmd-001"
-  }
-}
+# Terminal 2: Start testsender (vehicle must exist in registry to receive commands)
+go run ./cmd/testsender -vid ugv-husky-01
 
-# Expected response:
-{
-  "protocolVersion": 1,
-  "type": "command_ack",
-  "vehicleId": "ugv-husky-01",
-  "data": {
-    "commandId": "cmd-001",
-    "status": "accepted"
-  }
-}
+# Terminal 3: Connect with websocat and send commands interactively
+websocat ws://localhost:9000
+
+# In websocat, paste this hello message (press Enter after):
+{"protocolVersion":1,"type":"hello","vehicleId":"_client","timestampMs":0,"data":{"protocolVersion":1,"clientId":"cmd-test"}}
+
+# ⚠️  After welcome, you'll be spammed with telemetry frames (10/sec per vehicle).
+# This is expected! Just paste your command anyway - it will be processed.
+
+# Paste this command (it will appear between telemetry lines):
+{"protocolVersion":1,"type":"command","vehicleId":"ugv-husky-01","timestampMs":0,"command":"stop","data":{"commandId":"cmd-001"}}
+
+# Look for the command_ack response in the output:
+# {"protocolVersion":1,"type":"command_ack","vehicleId":"ugv-husky-01","data":{"commandId":"cmd-001","status":"accepted"}}
+
+# Press Ctrl+C to exit websocat
+
+# Cleanup (any terminal):
+pkill -f gateway; pkill -f testsender
+```
+
+> **Tip:** To reduce telemetry noise, use a lower rate testsender: `go run ./cmd/testsender -vid ugv-husky-01 -rate 1`
+
+**Test: Command to Unknown Vehicle**
+```bash
+# Terminal 1: Start gateway (no testsender = no telemetry spam)
+go run ./cmd/gateway
+
+# Terminal 2: Connect with websocat
+websocat ws://localhost:9000
+
+# Send hello:
+{"protocolVersion":1,"type":"hello","vehicleId":"_client","timestampMs":0,"data":{"protocolVersion":1,"clientId":"cmd-test"}}
+
+# Send command to non-existent vehicle:
+{"protocolVersion":1,"type":"command","vehicleId":"nonexistent","timestampMs":0,"command":"stop","data":{"commandId":"cmd-002"}}
+
+# Expected error response:
+# {"protocolVersion":1,"type":"error","vehicleId":"_gateway","data":{"code":"VEHICLE_NOT_FOUND","message":"vehicle nonexistent not found in registry","commandId":"cmd-002"}}
+
+# Cleanup (any terminal):
+pkill -f gateway
 ```
 
 #### 3.2 Command Types Testing
 
-**Supported Commands:**
+**Supported Core Commands:**
 
-| Action | Payload Fields | Description |
-|--------|---------------|-------------|
+> These are the built-in commands supported by all vehicles. Extensions may add additional commands via their namespace (see [EXTENSIBILITY.md](EXTENSIBILITY.md)).
+
+| Command | Payload Fields | Description |
+|---------|---------------|-------------|
 | `goto` | `destination: {lat, lng}`, `speed` (optional) | Navigate to location |
 | `stop` | (none) | Emergency stop |
 | `return_home` | (none) | Return to launch |
 | `set_mode` | `mode: "manual"/"autonomous"/"guided"` | Change mode |
 | `set_speed` | `speed: float (m/s)` | Set target speed |
 
-**Test: Goto Command**
-```json
-{
-  "protocolVersion": 1,
-  "type": "command",
-  "vehicleId": "ugv-husky-01",
-  "data": {
-    "action": "goto",
-    "commandId": "goto-001",
-    "destination": {"lat": 37.7850, "lng": -122.4000},
-    "speed": 3.5
-  }
-}
+**Test: All Core Commands**
+
+```bash
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2: Start testsender with low rate (less spam)
+go run ./cmd/testsender -vid ugv-husky-01 -rate 1
 ```
 
-**Test: Set Mode Command**
-```json
-{
-  "protocolVersion": 1,
-  "type": "command",
-  "vehicleId": "uav-quad-02",
-  "data": {
-    "action": "set_mode",
-    "commandId": "mode-001",
-    "mode": "autonomous"
-  }
-}
+**Test commands using testclient:**
+```bash
+# Terminal 3: Send a stop command
+go run ./cmd/testclient -cmd stop -vid ugv-husky-01
+
+# Send a goto command
+go run ./cmd/testclient -cmd goto -vid ugv-husky-01 -lat 37.7850 -lng -122.4000 -speed 3.5
+
+# Send return_home command  
+go run ./cmd/testclient -cmd return_home -vid ugv-husky-01
+
+# Send set_mode command
+go run ./cmd/testclient -cmd set_mode -vid ugv-husky-01 -mode autonomous
+
+# Send set_speed command
+go run ./cmd/testclient -cmd set_speed -vid ugv-husky-01 -speed 5.0
+
+# Each command should return:
+# ✓ Command accepted: stop-xxx
+
+# Cleanup (any terminal):
+pkill -f gateway; pkill -f testsender
 ```
+
+**Test: Extension Commands (Husky)**
+
+> Extension commands use `"command": "extension"` with a `namespace` and `payload` containing the command.
+> **Note:** Only the Husky extension is currently implemented in testclient. Other extensions would follow the same pattern.
+
+```bash
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2: Start testsender with Husky vehicle ID
+go run ./cmd/testsender -vid ugv-husky-01 -rate 1
+```
+
+**Test Husky extension commands using testclient:**
+```bash
+# Terminal 3: setDriveMode - change drive mode
+go run ./cmd/testclient -cmd ext -vid ugv-husky-01 -action setDriveMode -mode autonomous
+
+# triggerEStop - software emergency stop
+go run ./cmd/testclient -cmd ext -vid ugv-husky-01 -action triggerEStop
+
+# setBumperSensitivity - adjust collision detection (0-100)
+go run ./cmd/testclient -cmd ext -vid ugv-husky-01 -action setBumperSensitivity -sensitivity 75
+
+# ⚠️  Expected result: COMMAND_NOT_SUPPORTED error
+# This is correct! testsender only simulates telemetry - it doesn't implement
+# command handling. The error proves routing works (gateway found the vehicle
+# and attempted to deliver the extension command).
+
+# Cleanup (any terminal):
+pkill -f gateway; pkill -f testsender
+```
+
+> **Note:** To test extension commands end-to-end with ACKs, you'd need a vehicle/simulator that implements the Husky codec's command handlers. See [EXTENSIBILITY.md](EXTENSIBILITY.md) for the codec interface.
 
 #### 3.3 Command Validation Testing
 
 **What's Implemented:**
 - Vehicle must exist in registry (received at least one telemetry)
-- Required fields: `commandId`, `action`, valid `vid`
+- Required fields: `commandId`, `command`, valid `vehicleId`
 - Action-specific validation (e.g., valid mode values)
 
 **Test: Unknown Vehicle**
 ```bash
-# Send command to non-existent vehicle
-# Command vid: "nonexistent-vehicle"
+# Terminal 1: Start gateway (no testsender)
+go run ./cmd/gateway
 
-# Expected error response:
-{
-  "protocolVersion": 1,
-  "type": "error",
-  "vehicleId": "_gateway",
-  "data": {
-    "code": "VEHICLE_NOT_FOUND",
-    "message": "vehicle nonexistent-vehicle not found in registry",
-    "commandId": "cmd-xxx"
-  }
-}
-```
+# Terminal 2: Send command to non-existent vehicle
+go run ./cmd/testclient -cmd stop -vid nonexistent-vehicle
 
-**Test: Missing CommandId**
-```bash
-# Send command without commandId field
+# Expected output:
+# ✗ Error [VEHICLE_NOT_FOUND]: vehicle nonexistent-vehicle not found in registry
 
-# Expected error response:
-{
-  "protocolVersion": 1,
-  "type": "error",
-  "vehicleId": "_gateway",
-  "data": {
-    "code": "INVALID_MESSAGE",
-    "message": "missing commandId"
-  }
-}
+# Cleanup:
+pkill -f gateway
 ```
 
 **Test: Invalid Mode Value**
 ```bash
-# Send set_mode with invalid mode
-# "mode": "turbo"
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# Expected error response:
-{
-  "protocolVersion": 1,
-  "type": "error",
-  "vehicleId": "_gateway",
-  "data": {
-    "code": "INVALID_MESSAGE",
-    "message": "invalid set_mode command: invalid mode: turbo"
-  }
-}
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-husky-01 -rate 1
+
+# Terminal 3: Send set_mode with invalid mode
+go run ./cmd/testclient -cmd set_mode -vid ugv-husky-01 -mode turbo
+
+# Expected output:
+# ✗ Error [INVALID_MESSAGE]: invalid set_mode command: invalid mode: turbo
+
+# Cleanup:
+pkill -f gateway; pkill -f testsender
 ```
 
 #### 3.4 Rate Limiting Testing
@@ -481,26 +554,41 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 **Test: Rate Limit Exceeded**
 ```bash
-# Send >10 commands per second to same vehicle
-# (Requires programmatic client)
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# After 10th command in 1 second:
-{
-  "protocolVersion": 1,
-  "type": "error",
-  "vehicleId": "_gateway",
-  "data": {
-    "code": "RATE_LIMITED",
-    "message": "Command rate limit exceeded for ugv-husky-01 (10/sec)",
-    "commandId": "cmd-011"
-  }
-}
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-husky-01 -rate 1
+
+# Terminal 3: Send 15 commands rapidly (exceeds 10/sec limit)
+go run ./cmd/testclient -cmd stop -vid ugv-husky-01 -burst 15
+
+# Expected output:
+# → Sending 15 stop commands rapidly to ugv-husky-01...
+# ✓ Results: 10 accepted, 5 rate-limited
+# ✓ Rate limiting is working!
+
+# Cleanup:
+pkill -f gateway; pkill -f testsender
 ```
 
 **Test: Rate Limit Per-Vehicle**
 ```bash
-# Send 10 commands to vehicle A, then 10 to vehicle B
-# All 20 should succeed (limit is per-vehicle, not global)
+# Terminal 1: Start gateway
+go run ./cmd/gateway
+
+# Terminal 2 & 3: Start two testsenders
+go run ./cmd/testsender -vid vehicle-a -rate 1
+go run ./cmd/testsender -vid vehicle-b -rate 1
+
+# Terminal 4: Send 10 to each vehicle (both should succeed - limit is per-vehicle)
+go run ./cmd/testclient -cmd stop -vid vehicle-a -burst 10
+go run ./cmd/testclient -cmd stop -vid vehicle-b -burst 10
+
+# Both should show: ✓ Results: 10 accepted, 0 rate-limited
+
+# Cleanup:
+pkill -f gateway; pkill -f testsender
 ```
 
 #### 3.5 Command Timeout Testing
@@ -512,44 +600,28 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 **Test: Command Timeout**
 ```bash
-# 1. Start gateway
+# Terminal 1: Start gateway with short timeout (3s for faster testing)
 OPENC2_CMD_TIMEOUT=3s go run ./cmd/gateway
 
-# 2. Start testsender (provides a vehicle in registry)
-go run ./cmd/testsender -vid timeout-test
+# Terminal 2: Start testsender (provides a vehicle in registry)
+go run ./cmd/testsender -vid ugv-husky-01 -rate 1
 
-# 3. Send command via custom client
-# 4. Wait 3 seconds (no vehicle ACK since testsender doesn't process commands)
+# Terminal 3: Send command and wait for timeout ack
+# The -wait flag keeps connection open after initial "accepted" to observe the timeout
+go run ./cmd/testclient -cmd stop -vid ugv-husky-01 -wait 5s
 
-# Expected: Client receives synthetic timeout ACK:
-{
-  "protocolVersion": 1,
-  "type": "command_ack",
-  "vehicleId": "timeout-test",
-  "data": {
-    "commandId": "cmd-xxx",
-    "status": "timeout",
-    "message": "No response from vehicle after 3 seconds"
-  }
-}
+# Expected output:
+# ✓ Connected to gateway
+# → Sent stop to ugv-husky-01 (id=stop-xxx)
+# ✓ Command accepted: stop-xxx
+# → Waiting 5s for timeout ack...
+# ✓ Received timeout ack: No response from vehicle after 3 seconds
 
 # Cleanup:
-pkill -f testsender
-pkill -f gateway
+pkill -f gateway; pkill -f testsender
 ```
 
-#### 3.6 Multicast Command Output Testing
-
-**Test: Capture Command Multicast**
-```bash
-# Listen on command multicast group:
-# (Requires netcat with multicast support or custom receiver)
-# Address: 239.255.0.2:14551
-
-# Send command via UI
-# Verify protobuf Command message arrives on multicast
-# Protobuf contains: command_id, vehicle_id, timestamp_ms, and payload oneof
-```
+> **Note:** The timeout occurs because `testsender` only simulates telemetry - it doesn't process commands or send ACKs. A real vehicle would respond with `accepted`/`completed`/`failed` before the timeout.
 
 ---
 
@@ -609,20 +681,24 @@ go run ./cmd/testclient
 
 **Test: Health Check**
 ```bash
-go run ./cmd/gateway &
-go run ./cmd/testsender -vid ugv-test-01 &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# Basic health check
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-test-01
+
+# Terminal 3: Check health endpoint
 curl http://localhost:9000/healthz
 # {"clients":0,"status":"ok"}
 
-# After client connects:
-go run ./cmd/testclient &
-sleep 1
+# Terminal 4: Connect a client
+go run ./cmd/testclient
+
+# Terminal 3: Check health again (shows 1 client)
 curl http://localhost:9000/healthz
 # {"clients":1,"status":"ok"}
 
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway; pkill -f testsender; pkill -f testclient
 ```
 
@@ -642,12 +718,16 @@ echo $?  # Should be 0 (success)
 
 **Test: Metrics Endpoint**
 ```bash
-go run ./cmd/gateway &
-go run ./cmd/testsender -vid ugv-test-01 &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-test-01
+
+# Terminal 3: Check metrics endpoint
 curl http://localhost:9000/metrics
 
-# Cleanup when done:
+# Cleanup (any terminal):
 # pkill -f gateway; pkill -f testsender
 
 # Expected output (Prometheus format):
@@ -718,11 +798,13 @@ scrape_configs:
 
 **Test: Graceful Shutdown**
 ```bash
-# Terminal 1: Start gateway and testsender
-go run ./cmd/gateway &
-go run ./cmd/testsender -vid ugv-test-01 &
+# Terminal 1: Start gateway
+go run ./cmd/gateway
 
-# Terminal 2: Connect client (keep running)
+# Terminal 2: Start testsender
+go run ./cmd/testsender -vid ugv-test-01
+
+# Terminal 3: Connect client (keep running)
 go run ./cmd/testclient
 
 # Terminal 1: Send SIGINT (Ctrl+C) to gateway
@@ -732,7 +814,7 @@ go run ./cmd/testclient
 # time=... level=INFO msg="gateway stopped"
 
 # Client should receive close frame and disconnect cleanly
-# Cleanup:
+# Cleanup (any terminal):
 pkill -f gateway; pkill -f testsender; pkill -f testclient
 ```
 

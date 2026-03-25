@@ -4,9 +4,9 @@
 *.dll
 *.so
 *.dylib
-gateway
-testclient
-testsender
+/gateway
+/testclient
+/testsender
 
 # Test binary, built with `go test -c`
 *.test
