@@ -4,7 +4,7 @@
 //
 // NAMING CONVENTION:
 // - Protobuf (vehicle ↔ gateway): snake_case (e.g., battery_pct, vehicle_id)
-// - JSON (gateway ↔ UI): camelCase (e.g., batteryPct, vehicleId)
+// - JSON (gateway ↔ UI): camelCase (e.g., batteryPercent, vehicleId)
 //
 // This is intentional and follows industry conventions for each format.
 // The translate.go file handles the mapping between these conventions.
@@ -71,7 +71,7 @@ type TelemetryPayload struct {
 	Heading             float64        `json:"heading"`                       // Heading in degrees [0, 360)
 	Environment         string         `json:"environment"`                   // air, ground, marine
 	Seq                 uint32         `json:"seq"`                           // Monotonic sequence number for ordering
-	BatteryPercent      *int           `json:"batteryPct,omitempty"`          // 0-100, nil if unknown
+	BatteryPercent      *int           `json:"batteryPercent,omitempty"`      // 0-100, nil if unknown
 	SignalStrength      *int           `json:"signalStrength,omitempty"`      // 0-5 bars, nil if unknown
 	SupportedExtensions []string       `json:"supportedExtensions,omitempty"` // Namespaces this vehicle supports
 	Extensions          map[string]any `json:"extensions,omitempty"`          // Decoded extension telemetry

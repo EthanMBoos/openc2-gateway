@@ -50,6 +50,29 @@ Quick reference for key terms used throughout the gateway documentation. Underst
 
 ---
 
+## Code Abbreviations
+
+Common abbreviations used in Go source code for brevity while maintaining readability:
+
+| Abbrev | Full Name | Context | Example |
+|--------|-----------|---------|--------|
+| `pb` | Protocol Buffers | Import alias for generated proto package | `pb.VehicleTelemetry` |
+| `mu` | Mutex | Standard Go idiom for `sync.Mutex` fields | `r.mu.Lock()` |
+| `cfg` | Config | Configuration struct instances | `cfg.WSPort` |
+| `reg` | Registry | Vehicle registry instance | `reg.Get(vehicleID)` |
+| `seq` | Sequence | Telemetry sequence number | `seq uint32` |
+| `ctx` | Context | Go context for cancellation | `ctx context.Context` |
+| `msg` | Message | Protobuf or frame message | `msg *pb.VehicleMessage` |
+| `conn` | Connection | Network connection (UDP/WebSocket) | `conn *net.UDPConn` |
+| `addr` | Address | Network address | `addr *net.UDPAddr` |
+| `err` | Error | Error return value | `if err != nil` |
+| `vid` | Vehicle ID | CLI flags only (use `vehicleID` in code) | `--vid ugv-test-01` |
+| `mcast` | Multicast | Network multicast configuration | `OPENC2_MCAST_SOURCES` |
+| `cmd` | Command | Command frame or CLI subcommand | `cmdTracker`, `--cmd stop` |
+| `hwm` | High-Water Mark | Sequence deduplication threshold | `highWaterMark` in code |
+
+---
+
 ## Commands
 
 | Term | Definition |

@@ -17,7 +17,7 @@
     "heading": 145.0,
     "environment": "ground",
     "seq": 42,
-    "batteryPct": 85,
+    "batteryPercent": 85,
     "signalStrength": 4,
     "supportedExtensions": ["husky", "camera"],
     "extensions": {

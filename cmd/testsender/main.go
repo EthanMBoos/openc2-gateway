@@ -28,12 +28,14 @@ import (
 
 func main() {
 	// Command-line flags
-	vid := flag.String("vid", "ugv-test-01", "Vehicle ID")
-	env := flag.String("env", "ground", "Environment: ground, air, marine")
-	group := flag.String("group", "239.255.0.1", "Multicast group address")
-	port := flag.Int("port", 14550, "Multicast port")
-	rate := flag.Int("rate", 10, "Telemetry rate in Hz")
-	capsMode := flag.String("caps", "all", "Capability mode: all, no-stop, no-goto, none")
+	// Note: Short flag names (-vid, -env) are used for CLI brevity.
+	// Full names: vehicle-id, environment, multicast-group, multicast-port, telemetry-rate, capabilities
+	vid := flag.String("vid", "ugv-test-01", "Vehicle ID (e.g., ugv-husky-01, uav-quad-02)")
+	env := flag.String("env", "ground", "Vehicle environment: ground, air, or marine")
+	group := flag.String("group", "239.255.0.1", "Multicast group address for telemetry broadcast")
+	port := flag.Int("port", 14550, "Multicast UDP port for telemetry broadcast")
+	rate := flag.Int("rate", 10, "Telemetry transmission rate in Hz (messages per second)")
+	capsMode := flag.String("caps", "all", "Capability mode: all (full commands), no-stop, no-goto, or none (observation-only)")
 	flag.Parse()
 
 	// Build capabilities based on mode
