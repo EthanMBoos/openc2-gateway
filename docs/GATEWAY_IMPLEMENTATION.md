@@ -881,12 +881,25 @@ pkill -f gateway; pkill -f testsender; pkill -f testclient; echo "✓ Cleaned"
 | Env Variable | Default | Description |
 |--------------|---------|-------------|
 | `OPENC2_WS_PORT` | 9000 | WebSocket port |
-| `OPENC2_MCAST_GROUP` | 239.255.0.1 | Telemetry multicast |
-| `OPENC2_MCAST_PORT` | 14550 | Telemetry port |
+| `OPENC2_MCAST_SOURCES` | 239.255.0.1:14550 | Telemetry multicast sources |
 | `OPENC2_CMD_MCAST_GROUP` | 239.255.0.2 | Command multicast |
 | `OPENC2_CMD_MCAST_PORT` | 14551 | Command port |
 | `OPENC2_STANDBY_TIMEOUT` | 3s | Time before standby |
 | `OPENC2_OFFLINE_TIMEOUT` | 10s | Time before offline |
+
+### Multi-Source Telemetry
+
+To receive telemetry from vehicles broadcasting on different multicast groups:
+
+```bash
+# Multiple sources (comma-separated)
+OPENC2_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551" go run ./cmd/gateway
+
+# With labels for logging
+OPENC2_MCAST_SOURCES="239.255.0.1:14550:ugv-fleet,239.255.1.1:14551:usv-fleet" go run ./cmd/gateway
+```
+
+Format: `group:port` or `group:port:label`, comma-separated.
 
 ## Dependencies
 

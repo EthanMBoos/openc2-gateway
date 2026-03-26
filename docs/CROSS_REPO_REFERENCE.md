@@ -154,9 +154,8 @@
 | Setting | Gateway Env Var | Default |
 |---------|-----------------|---------|
 | WebSocket port | `OPENC2_WS_PORT` | `9000` |
-| Multicast group (vehicle→gw) | `OPENC2_MCAST_GROUP` | `239.255.0.1` |
-| Multicast port | `OPENC2_MCAST_PORT` | `14550` |
-| Command multicast | — | `239.255.0.2:14551` |
+| Telemetry multicast | `OPENC2_MCAST_SOURCES` | `239.255.0.1:14550` |
+| Command multicast | `OPENC2_CMD_MCAST_GROUP` | `239.255.0.2:14551` |
 | Standby timeout | `OPENC2_STANDBY_TIMEOUT` | `3s` |
 | Offline timeout | `OPENC2_OFFLINE_TIMEOUT` | `10s` |
 | Command rate limit | `OPENC2_CMD_RATE_LIMIT` | `10/sec/vehicle` |

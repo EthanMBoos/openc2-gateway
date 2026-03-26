@@ -55,7 +55,7 @@ The vehicle will appear in the UI's fleet view once the gateway receives the fir
 Your vehicle firmware/software must:
 
 1. Serialize telemetry as a `Telemetry` protobuf message (see `api/proto/openc2.proto`)
-2. Send it via UDP multicast to `239.255.0.1:14550` (configurable via `OPENC2_MCAST_GROUP` / `OPENC2_MCAST_PORT`)
+2. Send it via UDP multicast to `239.255.0.1:14550` (configurable via `OPENC2_MCAST_SOURCES`)
 3. Listen for commands on `239.255.0.2:14551` (configurable via `OPENC2_CMD_MCAST_GROUP` / `OPENC2_CMD_MCAST_PORT`)
 4. Send back a `CommandAck` frame when a command is received
 

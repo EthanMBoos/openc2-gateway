@@ -10,6 +10,7 @@
 |----------|---------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System topology, platform philosophy, deployment models |
 | [PROTOCOL.md](PROTOCOL.md) | Wire format, behavioral contracts, message types |
+| [NETWORKING.md](NETWORKING.md) | Multicast networking explained for beginners |
 | [GLOSSARY.md](GLOSSARY.md) | Key term definitions (`seq`, `gts`, `HWM`, naming conventions) |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | Build, run, test, simulate vehicles |
 | [PACKAGE_MAP.md](PACKAGE_MAP.md) | What each `internal/` package owns and does |

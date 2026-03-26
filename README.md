@@ -33,14 +33,18 @@ go run ./cmd/testclient
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OPENC2_WS_PORT` | `9000` | WebSocket server port |
-| `OPENC2_MCAST_GROUP` | `239.255.0.1` | Telemetry multicast group |
-| `OPENC2_MCAST_PORT` | `14550` | Telemetry multicast port |
+| `OPENC2_MCAST_SOURCES` | `239.255.0.1:14550` | Telemetry multicast sources |
 | `OPENC2_CMD_MCAST_GROUP` | `239.255.0.2` | Command multicast group |
 | `OPENC2_CMD_MCAST_PORT` | `14551` | Command multicast port |
 | `OPENC2_MAX_CLIENTS` | `4` | Max WebSocket clients |
 | `OPENC2_STANDBY_TIMEOUT` | `3s` | Time before vehicle marked standby |
 | `OPENC2_OFFLINE_TIMEOUT` | `10s` | Time before vehicle marked offline |
 | `OPENC2_LOG_LEVEL` | `info` | Log level (debug/info/warn/error) |
+
+**Multi-source example:**
+```bash
+OPENC2_MCAST_SOURCES="239.255.0.1:14550:ugv,239.255.1.1:14551:usv" go run ./cmd/gateway
+```
 
 ## Documentation
 

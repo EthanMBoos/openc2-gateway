@@ -4,19 +4,29 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// MulticastSourceConfig defines a single multicast telemetry source.
+type MulticastSourceConfig struct {
+	Group string `yaml:"group" json:"group"` // Multicast group address
+	Port  int    `yaml:"port"  json:"port"`  // UDP port
+	Label string `yaml:"label" json:"label"` // Human-readable label for logging
+}
 
 // Config holds all gateway configuration.
 type Config struct {
 	// WebSocket settings
 	WSPort int // OPENC2_WS_PORT (default: 9000)
 
-	// Multicast settings for vehicle telemetry (inbound)
-	MulticastGroup string // OPENC2_MCAST_GROUP (default: 239.255.0.1)
-	MulticastPort  int    // OPENC2_MCAST_PORT (default: 14550)
+	// Multicast telemetry sources (inbound from vehicles)
+	// OPENC2_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551"
+	// Default: 239.255.0.1:14550
+	MulticastSources []MulticastSourceConfig
 
 	// Multicast settings for commands (outbound)
 	CmdMulticastGroup string // OPENC2_CMD_MCAST_GROUP (default: 239.255.0.2)
@@ -34,12 +44,21 @@ type Config struct {
 	GatewayVersion string // Injected at build time
 }
 
+// Default multicast addresses per PROTOCOL.md
+const (
+	DefaultMulticastGroup = "239.255.0.1"
+	DefaultMulticastPort  = 14550
+)
+
 // Default returns a Config with sensible defaults matching PROTOCOL.md.
 func Default() Config {
 	return Config{
-		WSPort:            9000,
-		MulticastGroup:    "239.255.0.1",
-		MulticastPort:     14550,
+		WSPort: 9000,
+		MulticastSources: []MulticastSourceConfig{{
+			Group: DefaultMulticastGroup,
+			Port:  DefaultMulticastPort,
+			Label: "default",
+		}},
 		CmdMulticastGroup: "239.255.0.2",
 		CmdMulticastPort:  14551,
 		StandbyTimeout:    3 * time.Second,
@@ -61,17 +80,6 @@ func Load() (Config, error) {
 		cfg.WSPort, err = strconv.Atoi(v)
 		if err != nil {
 			return cfg, fmt.Errorf("invalid OPENC2_WS_PORT: %w", err)
-		}
-	}
-
-	// Multicast settings (telemetry)
-	if v := os.Getenv("OPENC2_MCAST_GROUP"); v != "" {
-		cfg.MulticastGroup = v
-	}
-	if v := os.Getenv("OPENC2_MCAST_PORT"); v != "" {
-		cfg.MulticastPort, err = strconv.Atoi(v)
-		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_MCAST_PORT: %w", err)
 		}
 	}
 
@@ -114,7 +122,88 @@ func Load() (Config, error) {
 		}
 	}
 
+	// Multicast telemetry sources
+	if v := os.Getenv("OPENC2_MCAST_SOURCES"); v != "" {
+		cfg.MulticastSources, err = parseMulticastSources(v)
+		if err != nil {
+			return cfg, fmt.Errorf("invalid OPENC2_MCAST_SOURCES: %w", err)
+		}
+	}
+	// Otherwise keep default from Default()
+
 	return cfg, nil
+}
+
+// parseMulticastSources parses "239.255.0.1:14550,239.255.1.1:14551" format.
+// Optional labels: "239.255.0.1:14550:ugv,239.255.1.1:14551:usv"
+func parseMulticastSources(s string) ([]MulticastSourceConfig, error) {
+	var sources []MulticastSourceConfig
+	seen := make(map[string]bool) // Detect duplicates
+
+	for i, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		// Check for optional label suffix: "group:port:label"
+		var label string
+		if colonCount := strings.Count(part, ":"); colonCount == 2 {
+			lastColon := strings.LastIndex(part, ":")
+			label = strings.TrimSpace(part[lastColon+1:])
+			part = part[:lastColon]
+		}
+
+		host, portStr, err := net.SplitHostPort(part)
+		if err != nil {
+			return nil, fmt.Errorf("source %d (%q): %w", i, part, err)
+		}
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("source %d: invalid port %q: %w", i, portStr, err)
+		}
+		if port < 1 || port > 65535 {
+			return nil, fmt.Errorf("source %d: port must be 1-65535, got %d", i, port)
+		}
+
+		// Validate multicast address range (224.0.0.0 - 239.255.255.255)
+		if !isMulticastAddress(host) {
+			return nil, fmt.Errorf("source %d: %q is not a valid multicast address (must be 224.0.0.0-239.255.255.255)", i, host)
+		}
+
+		// Check for duplicates
+		key := fmt.Sprintf("%s:%d", host, port)
+		if seen[key] {
+			return nil, fmt.Errorf("duplicate source: %s", key)
+		}
+		seen[key] = true
+
+		// Default label if empty or not provided
+		if label == "" {
+			label = fmt.Sprintf("source-%d", len(sources))
+		}
+
+		sources = append(sources, MulticastSourceConfig{
+			Group: host,
+			Port:  port,
+			Label: label,
+		})
+	}
+
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no valid sources specified")
+	}
+
+	return sources, nil
+}
+
+// isMulticastAddress checks if the IP is in the multicast range 224.0.0.0-239.255.255.255.
+func isMulticastAddress(addr string) bool {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return false
+	}
+	return ip.IsMulticast()
 }
 
 // Validate checks configuration for invalid combinations.
@@ -122,8 +211,8 @@ func (c Config) Validate() error {
 	if c.WSPort < 1 || c.WSPort > 65535 {
 		return fmt.Errorf("invalid WSPort: must be 1-65535, got %d", c.WSPort)
 	}
-	if c.MulticastPort < 1 || c.MulticastPort > 65535 {
-		return fmt.Errorf("invalid MulticastPort: must be 1-65535, got %d", c.MulticastPort)
+	if len(c.MulticastSources) == 0 {
+		return fmt.Errorf("no multicast sources configured")
 	}
 	if c.CmdMulticastPort < 1 || c.CmdMulticastPort > 65535 {
 		return fmt.Errorf("invalid CmdMulticastPort: must be 1-65535, got %d", c.CmdMulticastPort)

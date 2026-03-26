@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -83,9 +84,15 @@ func run() error {
 	slog.Info("starting openc2-gateway",
 		"version", cfg.GatewayVersion,
 		"ws_port", cfg.WSPort,
-		"mcast_group", cfg.MulticastGroup,
-		"mcast_port", cfg.MulticastPort,
+		"telemetry_sources", len(cfg.MulticastSources),
 	)
+	for _, src := range cfg.MulticastSources {
+		slog.Info("telemetry source configured",
+			"label", src.Label,
+			"group", src.Group,
+			"port", src.Port,
+		)
+	}
 
 	// Create shared components
 	seqTracker := protocol.NewSequenceTracker()
@@ -144,18 +151,47 @@ func run() error {
 		cancel()
 	}()
 
-	// Start telemetry source (UDP multicast from vehicles)
-	telemSource := telemetry.NewMulticastSource(telemetry.MulticastConfig{
-		Group: cfg.MulticastGroup,
-		Port:  cfg.MulticastPort,
-	})
-
-	// Start telemetry pipeline
+	// Start telemetry sources (UDP multicast from vehicles)
+	// Each source gets its own channel; we fan-in to the shared telemetryFrames channel.
 	telemetryFrames := make(chan *protocol.Frame, 100)
+
+	// WaitGroup to track when all sources have stopped
+	var sourceWg sync.WaitGroup
+
+	for _, srcCfg := range cfg.MulticastSources {
+		sourceWg.Add(1)
+
+		// Each source writes to its own channel (source owns and closes it)
+		sourceCh := make(chan *protocol.Frame, 50)
+		src := telemetry.NewMulticastSource(telemetry.MulticastConfig{
+			Group: srcCfg.Group,
+			Port:  srcCfg.Port,
+		})
+
+		// Start the multicast listener
+		go func(label string, s *telemetry.MulticastSource, ch chan *protocol.Frame) {
+			defer sourceWg.Done()
+			if err := s.Start(ctx, ch); err != nil && ctx.Err() == nil {
+				slog.Error("telemetry source error", "label", label, "error", err)
+			}
+		}(srcCfg.Label, src, sourceCh)
+
+		// Fan-in: forward frames from source channel to shared channel
+		go func(label string, ch <-chan *protocol.Frame) {
+			for frame := range ch {
+				select {
+				case telemetryFrames <- frame:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(srcCfg.Label, sourceCh)
+	}
+
+	// Close telemetryFrames when all sources are done
 	go func() {
-		if err := telemSource.Start(ctx, telemetryFrames); err != nil && ctx.Err() == nil {
-			slog.Error("telemetry source error", "error", err)
-		}
+		sourceWg.Wait()
+		close(telemetryFrames)
 	}()
 
 	// Telemetry → Registry → WebSocket pipeline

@@ -42,8 +42,7 @@ All configuration is via environment variables. Unset variables use defaults.
 | Variable | Default | Description |
 |---|---|---|
 | `OPENC2_WS_PORT` | `9000` | WebSocket server port |
-| `OPENC2_MCAST_GROUP` | `239.255.0.1` | Multicast group for inbound telemetry |
-| `OPENC2_MCAST_PORT` | `14550` | UDP port for inbound telemetry |
+| `OPENC2_MCAST_SOURCES` | `239.255.0.1:14550` | Telemetry multicast sources |
 | `OPENC2_CMD_MCAST_GROUP` | `239.255.0.2` | Multicast group for outbound commands |
 | `OPENC2_CMD_MCAST_PORT` | `14551` | UDP port for outbound commands |
 | `OPENC2_STANDBY_TIMEOUT` | `3s` | Time with no telemetry before vehicle goes standby |
@@ -52,6 +51,13 @@ All configuration is via environment variables. Unset variables use defaults.
 | `OPENC2_CMD_RATE_LIMIT` | `10` | Max commands per second per vehicle |
 
 `OPENC2_OFFLINE_TIMEOUT` must be greater than `OPENC2_STANDBY_TIMEOUT` — the gateway will reject invalid combinations at startup.
+
+**Multi-source telemetry:** Use `OPENC2_MCAST_SOURCES` to receive from multiple multicast groups (e.g., different vehicle fleets):
+
+```bash
+# Format: group:port or group:port:label
+OPENC2_MCAST_SOURCES="239.255.0.1:14550:ugv-fleet,239.255.1.1:14551:usv-fleet" go run ./cmd/gateway
+```
 
 Example:
 ```bash
