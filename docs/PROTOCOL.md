@@ -42,17 +42,17 @@ Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JS
 │   Vehicle   │                           │   Gateway   │                    │     UI      │
 └──────┬──────┘                           └──────┬──────┘                    └──────┬──────┘
        │                                         │                                  │
-       │◀───── GatewayHeartbeat (1/sec) ────────│                                  │
-       │                                         │◀────────── hello ───────────────│
-       │                                         │─────────── welcome ────────────▶│
-       │                                         │            (fleet, manifests,   │
-       │                                         │             availableExtensions)│
+       │◀───── GatewayHeartbeat (1/sec) ─────────│                                  │
+       │                                         │◀────────── hello ────────────────│
+       │                                         │─────────── welcome ─────────────▶│
+       │                                         │            (fleet, manifests,    │
+       │                                         │             availableExtensions) │
        │                                         │                                  │
-       │────── VehicleTelemetry ────────────────▶│─────────── telemetry ──────────▶│
+       │────── VehicleTelemetry ────────────────▶│─────────── telemetry ───────────▶│
        │────── Heartbeat (capabilities) ────────▶│                                  │
        │                                         │                                  │
-       │◀───── Command ─────────────────────────│◀────────── command ─────────────│
-       │────── CommandAck ──────────────────────▶│─────────── command_ack ────────▶│
+       │◀───── Command ──────────────────────────│◀────────── command ──────────────│
+       │────── CommandAck ──────────────────────▶│─────────── command_ack ─────────▶│
 ```
 
 - Client MUST send `hello` as first message
