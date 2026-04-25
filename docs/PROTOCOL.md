@@ -42,22 +42,23 @@ Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JS
 │   Vehicle   │                           │   Gateway   │                    │     UI      │
 └──────┬──────┘                           └──────┬──────┘                    └──────┬──────┘
        │                                         │                                  │
-       │◀───── GatewayHeartbeat (1/sec) ─────────│                                  │
        │                                         │◀────────── hello ────────────────│
        │                                         │─────────── welcome ─────────────▶│
        │                                         │            (fleet, manifests,    │
        │                                         │             availableExtensions) │
        │                                         │                                  │
        │────── VehicleTelemetry ────────────────▶│─────────── telemetry ───────────▶│
-       │────── Heartbeat (capabilities) ────────▶│                                  │
+       │────── Heartbeat (capabilities) ────────▶│─────────── heartbeat ───────────▶│
        │                                         │                                  │
-       │◀───── Command ──────────────────────────│◀────────── command ──────────────│
+       │◀───── Command ─────────────────────────│◀────────── command ───────────────│
        │────── CommandAck ──────────────────────▶│─────────── command_ack ─────────▶│
 ```
 
 - Client MUST send `hello` as first message
 - Gateway responds with `welcome` containing full fleet state, available extensions, and manifests
+- Gateway broadcasts subsequent vehicle `heartbeat` frames to all handshaked UI clients, including live capability updates
 - Vehicles do NOT receive the `welcome` message — it's UI-only
+- `GatewayHeartbeat` is defined for future vehicle-side loss detection, but the current gateway does not broadcast it yet
 
 ---
 
