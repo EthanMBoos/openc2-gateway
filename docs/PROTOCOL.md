@@ -226,6 +226,99 @@ lastSeq[msg.vid] = msg.data.seq;
 - Gateway supports current + one prior version
 - Clients ignore unknown fields
 
+### Transport Profiles (Planned)
+
+If future deployments need to optimize for **spotty links**, **bandwidth caps**, or **smaller protobuf frames**, the recommended path is to add a **transport profile** rather than mutating the core OpenC2 object model.
+
+**Design rule:** Keep the semantic contract stable (`VehicleTelemetry`, `Heartbeat`, `Command`, `CommandAck`, extension manifests/capabilities). Optimize how often fields are sent and, only if necessary, add a profile-specific compact representation that the gateway immediately translates back into the canonical model.
+
+#### Why a Transport Profile Instead of Ad-Hoc Shrinking?
+
+Ad-hoc changes tend to leak network concerns into every message definition:
+
+| Bad Pattern | Why It Causes Long-Term Damage |
+|-------------|--------------------------------|
+| Renaming/removing fields to save bytes | Breaks tooling, tests, and downstream integrations |
+| Using extensions to encode link behavior | Conflates domain extensibility with transport concerns |
+| Compressing every UDP datagram by default | Adds CPU/latency cost and makes loss recovery worse for small packets |
+| Forking a separate "low-bandwidth protocol" | Creates two semantic contracts to maintain forever |
+
+The safer approach is:
+
+1. Keep one canonical protocol model
+2. Negotiate a link profile per session or deployment
+3. Let the gateway normalize constrained-link input back to the canonical JSON/UI model
+
+#### Recommended Profiles
+
+| Profile | Intended Network | Contract |
+|---------|------------------|----------|
+| `default` | Healthy LAN / wired multicast | Current behavior |
+| `constrained` | Lossy WiFi, low-bitrate radios, intermittent links | Same semantics, stricter emission rules |
+
+The `constrained` profile is the recommended answer to a future "make it work on bad links" ask.
+
+#### `constrained` Profile: Phase 1 (No New Proto Messages)
+
+Start with sender behavior changes before introducing any new wire shape.
+
+**Emission rules** means sending different classes of data at different frequencies instead of lowering the rate for everything equally.
+
+**Example constrained-link rule:**
+
+- Send motion-critical telemetry on every fast frame: `vehicle_id`, `sequence_num`, `location`, `speed_ms`, `heading_deg`.
+- Send sticky state only when it changes, plus a low-rate refresh: `battery_pct`, `signal_strength`, `status`, `environment`.
+- Send capability metadata on heartbeat only: supported commands, extension capabilities, sensor inventory.
+- Send rich extension payloads on change or at a lower rate than core motion telemetry.
+
+**Example:** if a vehicle normally emits telemetry at 20 Hz, the constrained profile could send:
+
+- At 20 Hz: `vehicle_id`, `sequence_num`, `location`, `speed_ms`, `heading_deg`
+- At 1 Hz or on change: `battery_pct`, `signal_strength`, `status`, `environment`
+- On heartbeat only: `Heartbeat.capabilities`
+- At 1 Hz or on change: extension telemetry in the `extensions` map
+
+**Normative guidance for constrained links:**
+
+- Vehicles SHOULD send only motion-critical telemetry on the fast path.
+- Vehicles SHOULD move capability advertisement to `Heartbeat.capabilities` only.
+- Vehicles SHOULD send sticky fields only on change, plus a periodic refresh to heal packet loss.
+- Vehicles SHOULD send extension telemetry at a lower rate than core motion telemetry unless the extension is mission-critical.
+- The gateway MUST continue translating received data into the same canonical UI JSON shape.
+
+This profile avoids wire breakage and usually captures most of the bandwidth win, because the largest recurring costs are repeated strings and extension maps, not protobuf tag overhead.
+
+#### `constrained` Profile: Phase 2 (If Phase 1 Is Not Enough)
+
+If emission rules are still insufficient, add a **profile-gated compact frame** in a future protocol version rather than rewriting existing messages.
+
+Recommended constraints for that future work:
+
+- Add a new compact telemetry payload alongside existing `VehicleTelemetry`; do not redefine the meaning of existing fields.
+- Keep `Command`, `CommandAck`, and error semantics unchanged.
+- Make compact frames gateway-facing only; the gateway rehydrates them into canonical telemetry before forwarding to UI clients.
+- Require periodic full snapshots so a receiver can recover after packet loss without an out-of-band reset.
+- Negotiate profile/version explicitly; never infer compact-mode from missing fields.
+
+This keeps the complexity at the protocol edge instead of forcing every UI/tooling consumer to understand multiple partial representations.
+
+#### What Not to Optimize First
+
+If asked to reduce wire size, do **not** start with these:
+
+- Per-packet compression of UDP datagrams
+- Bit-packing booleans into custom binary formats
+- Removing `vehicle_id` or other identity fields from the canonical contract
+- Making the extension system responsible for bandwidth adaptation
+
+Those changes buy less than expected early, while making debugging and future compatibility materially worse.
+
+#### Presentable Recommendation
+
+If this comes up after release, the recommended answer is:
+
+> OpenC2 will keep one stable semantic protocol. For degraded networks, we will introduce a negotiated transport profile called `constrained` that first reduces bandwidth through emission rules and lower-rate extension state, and only if needed adds a compact gateway-facing telemetry frame in a future version. The gateway will normalize that back into the existing canonical model so the UI and tooling do not fork.
+
 #### Version Negotiation (Hello/Welcome)
 
 The `hello` → `welcome` handshake performs version negotiation:
