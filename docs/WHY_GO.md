@@ -1,4 +1,4 @@
-# Why Go for openc2-gateway
+# Why Go for tower-server
 
 Language choice justification. The main challenge is Go vs C++.
 
@@ -22,13 +22,13 @@ Language choice justification. The main challenge is Go vs C++.
 
 ```
 ┌──────────────┐    UDP multicast    ┌──────────────┐    WebSocket     ┌──────────────┐
-│  50+ Robots  │ ◀─────────────────▶ │   Gateway    │ ◀───────────────▶│  N Operator  │
+│  50+ Robots  │ ◀─────────────────▶ │   Server    │ ◀───────────────▶│  N Operator  │
 │  10-100Hz    │   239.255.0.1:14550 │              │   localhost:9000 │     UIs      │
 │  protobuf    │                     │              │   JSON frames    │              │
 └──────────────┘                     └──────────────┘                  └──────────────┘
 ```
 
-A **fleet gateway** on operator laptops or edge devices. Decodes incoming protobuf, encodes JSON for UIs, tracks fleet state, routes commands.
+A **fleet server** on operator laptops or edge devices. Decodes incoming protobuf, encodes JSON for UIs, tracks fleet state, routes commands.
 
 **Hard requirements:**
 
@@ -55,21 +55,21 @@ One binary runs everywhere — no runtime, no dependencies, no configuration:
 
 ```bash
 # Build for every target from any dev machine (CGO_ENABLED=0 = no libc dependency)
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -o gateway-linux-amd64   ./cmd/gateway
-CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -o gateway-linux-arm64   ./cmd/gateway
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o gateway-darwin-arm64  ./cmd/gateway
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o gateway-windows.exe   ./cmd/gateway
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -o tower-server-linux-amd64   ./cmd/tower-server
+CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -o tower-server-linux-arm64   ./cmd/tower-server
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o tower-server-darwin-arm64  ./cmd/tower-server
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o tower-server-windows.exe   ./cmd/tower-server
 ```
 
 Deploy to any target:
 
 | Target | Deploy | Notes |
 |--------|--------|-------|
-| Ubuntu laptop | `scp gateway-linux-amd64 operator@laptop:/opt/` | Field operator stations |
-| Raspberry Pi 4 | `scp gateway-linux-arm64 pi@edge:/opt/` | Edge compute on vehicles |
-| Jetson Orin/AGX | `scp gateway-linux-arm64 jetson@edge:/opt/` | On-vehicle compute (same ARM64 binary) |
-| M1/M2 MacBook | `scp gateway-darwin-arm64 dev@mac:~/` | Development machines |
-| Windows tablet | Copy `gateway-windows.exe` | Ruggedized field tablets |
+| Ubuntu laptop | `scp tower-server-linux-amd64 operator@laptop:/opt/` | Field operator stations |
+| Raspberry Pi 4 | `scp tower-server-linux-arm64 pi@edge:/opt/` | Edge compute on vehicles |
+| Jetson Orin/AGX | `scp tower-server-linux-arm64 jetson@edge:/opt/` | On-vehicle compute (same ARM64 binary) |
+| M1/M2 MacBook | `scp tower-server-darwin-arm64 dev@mac:~/` | Development machines |
+| Windows tablet | Copy `tower-server-windows.exe` | Ruggedized field tablets |
 
 **No `apt install`. No `pip install`. No container runtime. No library version conflicts.**
 
@@ -113,7 +113,7 @@ Go's `net`, `net/http`, `encoding/json`, and `sync` packages are production-grad
 |----------------|-------------------|
 | C++ (libprotobuf) | 3.5M msgs/sec |
 | Go (google/protobuf) | 1.8M msgs/sec |
-| **This gateway** | **5,000 msgs/sec** |
+| **This server** | **5,000 msgs/sec** |
 
 ```
 Go utilization:   5,000 / 1,800,000 = 0.28%
@@ -136,11 +136,11 @@ Neither language moves the bottleneck. JSON encoding dominates; protobuf speed i
 |--------|----------------|--------------|
 | Motor control | <100μs | **Fatal** — use C++ |
 | Flight controller | <1ms | **Dangerous** — use C++ |
-| **This gateway** | **<10ms** (100Hz arrival) | **<0.5ms pause** — acceptable |
+| **This server** | **<10ms** (100Hz arrival) | **<0.5ms pause** — acceptable |
 | Web API | <100ms | Irrelevant |
 
 Modern Go GC characteristics (stable since 1.19):
-- p99 pause: <500μs (conservative; real-world gateway workloads are lower)
+- p99 pause: <500μs (conservative; real-world server workloads are lower)
 - p999 pause: <1ms
 - Concurrent, incremental — runs alongside application
 
@@ -150,11 +150,11 @@ The UDP network stack introduces more jitter than Go's GC.
 
 ### "We Need Deterministic Memory"
 
-Valid for flight controllers, motor loops, and safety-critical systems. This gateway has a 10ms latency budget — 500μs GC pauses are invisible.
+Valid for flight controllers, motor loops, and safety-critical systems. This server has a 10ms latency budget — 500μs GC pauses are invisible.
 
 ### Concurrency Model
 
-The gateway is a fanout problem: N UDP sources → shared registry → M WebSocket clients. Go's goroutine-per-connection model scales naturally:
+The server is a fanout problem: N UDP sources → shared registry → M WebSocket clients. Go's goroutine-per-connection model scales naturally:
 
 ```go
 // Each connection gets its own goroutine. No thread pool tuning.
@@ -177,18 +177,18 @@ C++20 coroutines improve ergonomics but require coordinating compiler versions a
 
 **This is Go's killer operational feature.**
 
-Go exposes `pprof` over HTTP — attach to a *running* gateway in the field:
+Go exposes `pprof` over HTTP — attach to a *running* server in the field:
 
 ```bash
 # CPU profile from a running process (no restart, no rebuild)
-curl http://gateway:6060/debug/pprof/profile?seconds=30 > cpu.pprof
+curl http://server:6060/debug/pprof/profile?seconds=30 > cpu.pprof
 go tool pprof -http=:8080 cpu.pprof
 
 # Goroutine stacks (find deadlocks, leaks)
-curl http://gateway:6060/debug/pprof/goroutine?debug=2
+curl http://server:6060/debug/pprof/goroutine?debug=2
 
 # Heap dump (find memory leaks)
-curl http://gateway:6060/debug/pprof/heap > heap.pprof
+curl http://server:6060/debug/pprof/heap > heap.pprof
 ```
 
 No rebuild, no restart, no shipping debug symbols to field laptops. C++ equivalent requires recompilation with debug flags, redeployment, and hoping you can reproduce the issue.
@@ -197,7 +197,7 @@ No rebuild, no restart, no shipping debug symbols to field laptops. C++ equivale
 
 **Entire bug classes eliminated at compile time and in CI:**
 
-- No use-after-free, buffer overflows, or null dereferences — the gateway cannot segfault
+- No use-after-free, buffer overflows, or null dereferences — the server cannot segfault
 - `go test -race` catches data races that would be silent corruption in C++
 - Race detector runs in CI on every PR — catch concurrency bugs before they reach field deployments
 
@@ -231,10 +231,10 @@ Feature implementation (protocol translation, registry, sequence tracking) is si
 **Go build:**
 ```bash
 # Native build
-go build ./cmd/gateway
+go build ./cmd/tower-server
 
 # ARM64 cross-compile (one command, no toolchain setup)
-GOOS=linux GOARCH=arm64 go build -o gateway-arm64 ./cmd/gateway
+GOOS=linux GOARCH=arm64 go build -o tower-server-arm64 ./cmd/tower-server
 ```
 
 **C++ equivalent:** CMakeLists.txt + vcpkg.json + per-arch toolchain files + hope vcpkg has ARM64 binaries. Clean cross-compile builds take 3-10 minutes; Go takes <2 seconds.
@@ -267,9 +267,9 @@ All incremental Go changes. No architectural redesign required.
 
 C++ becomes worth reconsidering if:
 
-- **Latency requirements tighten to <1ms** — e.g., flight control colocated with gateway
+- **Latency requirements tighten to <1ms** — e.g., flight control colocated with server
 - **Fleet exceeds 500+ vehicles** with sub-second failover requirements
-- **Gateway must link against existing C++ vehicle libraries** — IPC overhead becomes a concern
+- **Server must link against existing C++ vehicle libraries** — IPC overhead becomes a concern
 - **Memory budget drops below 10MB** — embedded targets without Go runtime support
 
 None apply today. Revisit if requirements shift.
@@ -309,7 +309,7 @@ For a protocol bridge running on operator laptops, Go is the pragmatic choice.
 ### Measured From This Project
 
 **Binary size:**
-- Go: 13MB — `go build -o gateway ./cmd/gateway && ls -lh gateway`
+- Go: 13MB — `go build -o server ./cmd/tower-server && ls -lh server`
 
 ### Estimates
 

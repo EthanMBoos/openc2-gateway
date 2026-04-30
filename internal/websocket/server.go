@@ -1,4 +1,4 @@
-// Package websocket provides WebSocket server and client management for the gateway.
+// Package websocket provides WebSocket server and client management for the server.
 // It handles connection lifecycle, message routing, and broadcasting telemetry.
 package websocket
 
@@ -12,17 +12,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/command"
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
-	"github.com/EthanMBoos/openc2-gateway/internal/registry"
+	"github.com/EthanMBoos/tower-server/internal/command"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/registry"
 	"github.com/gorilla/websocket"
 )
 
 // ServerConfig holds WebSocket server configuration.
 type ServerConfig struct {
 	Port           int
-	GatewayVersion string
+	ServerVersion string
 }
 
 // Server manages WebSocket connections and message broadcasting.
@@ -229,7 +229,7 @@ func (s *Server) handleHello(c *Client, frame *protocol.Frame) error {
 
 	// Send welcome response
 	welcome := protocol.NewWelcomeFrame(
-		s.config.GatewayVersion,
+		s.config.ServerVersion,
 		fleet,
 		10,   // telemetryRateHz
 		1000, // heartbeatIntervalMs
@@ -372,7 +372,7 @@ func (s *Server) GetWelcomeFrame() *protocol.Frame {
 	availableExts := collectAvailableExtensions()
 	manifests := collectManifests()
 	return protocol.NewWelcomeFrame(
-		s.config.GatewayVersion,
+		s.config.ServerVersion,
 		fleet,
 		10,
 		1000,

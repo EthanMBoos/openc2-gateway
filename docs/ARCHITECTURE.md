@@ -1,7 +1,7 @@
-# OpenC2 Platform Architecture
+# Tower Platform Architecture
 
-> **Scope**: System-level design for the OpenC2 platform — two repositories, one operator experience.  
-> For gateway build phases see [GATEWAY_IMPLEMENTATION.md](GATEWAY_IMPLEMENTATION.md).  
+> **Scope**: System-level design for the Tower platform — two repositories, one operator experience.  
+> For server build phases see [SERVER_IMPLEMENTATION.md](SERVER_IMPLEMENTATION.md).  
 > For extension codec/manifest specifics see [EXTENSIBILITY.md](EXTENSIBILITY.md).  
 > For wire-format behavioral contracts see [PROTOCOL.md](PROTOCOL.md).  
 > For terminology definitions see [GLOSSARY.md](GLOSSARY.md).
@@ -10,13 +10,13 @@
 
 ## Platform Philosophy
 
-OpenC2 is a **platform**, not an application. It must support different robotics projects — unmanned ground vehicles (UGV), unmanned surface vehicles (USV), and unmanned aerial vehicles (UAV) — without forking. Architecture decisions are evaluated against one question: *can a new team extend this without touching shared code?*
+Tower is a **platform**, not an application. It must support different robotics projects — unmanned ground vehicles (UGV), unmanned surface vehicles (USV), and unmanned aerial vehicles (UAV) — without forking. Architecture decisions are evaluated against one question: *can a new team extend this without touching shared code?*
 
 | Layer | Principle |
 |-------|-----------|
 | **Core protocol** | Position, heading, status, basic commands — universal across all vehicles |
 | **Extension layer** | Custom telemetry fields, custom commands, custom UI panels per project |
-| **UI & gateway** | One codebase — teams extend, never fork |
+| **UI & server** | One codebase — teams extend, never fork |
 
 ---
 
@@ -35,7 +35,7 @@ OpenC2 is a **platform**, not an application. It must support different robotics
                                    │ imported at compile time
                                    ▼
 ┌──────────────┐    WebSocket     ┌──────────────┐     UDP multicast     ┌──────────────┐
-│  OpenC2 UI   │◀────────────────▶│  Go Gateway  │◀─────────────────────▶│ Radio Node   │
+│  Tower   │◀────────────────▶│  Go Server  │◀─────────────────────▶│ Radio Node   │
 │  (Electron)  │   localhost:9000 │              │    239.255.0.1:14550  │ (on vehicle) │
 └──────────────┘                  └──────────────┘    239.255.0.2:14551  └──────────────┘
   Manifest-driven rendering         Codec registry                         Vehicle firmware
@@ -47,15 +47,15 @@ OpenC2 is a **platform**, not an application. It must support different robotics
 
 | Direction | Format | Transport | Address |
 |-----------|--------|-----------|---------|
-| Vehicle → Gateway | protobuf | UDP multicast | `239.255.0.1:14550` |
-| Gateway → Vehicle | protobuf | UDP multicast | `239.255.0.2:14551` |
-| Gateway ↔ UI | JSON | WebSocket | `ws://localhost:9000` |
+| Vehicle → Server | protobuf | UDP multicast | `239.255.0.1:14550` |
+| Server → Vehicle | protobuf | UDP multicast | `239.255.0.2:14551` |
+| Server ↔ UI | JSON | WebSocket | `ws://localhost:9000` |
 
 **Why UDP multicast for vehicles?** Zero-infrastructure broadcast — vehicles on the same LAN receive commands without unicast routing tables. Vehicles tolerate packet loss via sequence-number deduplication, not retransmission.
 
-**Why WebSocket for UI?** Full-duplex over TCP gives the UI reliable delivery for commands and ACKs, while still allowing the gateway to push high-rate telemetry.
+**Why WebSocket for UI?** Full-duplex over TCP gives the UI reliable delivery for commands and ACKs, while still allowing the server to push high-rate telemetry.
 
-**Why JSON on the WebSocket?** No protobuf runtime in the browser. The gateway decodes all binary extension payloads and hands the UI clean, human-readable JSON.
+**Why JSON on the WebSocket?** No protobuf runtime in the browser. The server decodes all binary extension payloads and hands the UI clean, human-readable JSON.
 
 ---
 
@@ -63,10 +63,10 @@ OpenC2 is a **platform**, not an application. It must support different robotics
 
 | Repo | Language | Role |
 |------|----------|------|
-| `openc2-gateway` | Go | Bridges vehicles to UI; owns the wire protocol and extension registry |
-| `OpenC2` | TypeScript/Electron | Operator UI; owns rendering, command input, LLM integration |
+| `tower-server` | Go | Bridges vehicles to UI; owns the wire protocol and extension registry |
+| `Tower` | TypeScript/Electron | Operator UI; owns rendering, command input, LLM integration |
 
-The gateway has no dependency on the UI. The UI is a pure client — it never speaks directly to vehicles.
+The server has no dependency on the UI. The UI is a pure client — it never speaks directly to vehicles.
 
 > For a package-by-package breakdown of `internal/` see [PACKAGE_MAP.md](PACKAGE_MAP.md).
 
@@ -74,11 +74,11 @@ The gateway has no dependency on the UI. The UI is a pure client — it never sp
 
 ## Deployment Model
 
-**Development (default):** Gateway and UI run on the same laptop. Vehicles are either real hardware on the LAN or simulated via `cmd/testsender`.
+**Development (default):** Server and UI run on the same laptop. Vehicles are either real hardware on the LAN or simulated via `cmd/testsender`.
 
-**Field deployment:** Gateway runs on a Raspberry Pi or NUC co-located with the radio hardware. The UI runs on an operator laptop on the same network. The WebSocket address is configurable via `OPENC2_WS_PORT`; the UI connects to the gateway IP directly.
+**Field deployment:** Server runs on a Raspberry Pi or NUC co-located with the radio hardware. The UI runs on an operator laptop on the same network. The WebSocket address is configurable via `TOWER_WS_PORT`; the UI connects to the server IP directly.
 
-**Multi-client:** Multiple UI instances (e.g., mission commander + safety observer) can connect to one gateway simultaneously. Each receives the same telemetry broadcast.
+**Multi-client:** Multiple UI instances (e.g., mission commander + safety observer) can connect to one server simultaneously. Each receives the same telemetry broadcast.
 
 ---
 
@@ -92,17 +92,17 @@ The gateway has no dependency on the UI. The UI is a pure client — it never sp
 | Encryption | `wss://` with TLS cert validation |
 | Command ACL | Per-vehicle permissions keyed to client identity |
 
-The current threat model assumes the operator network is physically controlled. Do not expose the gateway WebSocket port to untrusted networks.
+The current threat model assumes the operator network is physically controlled. Do not expose the server WebSocket port to untrusted networks.
 
 ---
 
 ## Core vs Extension Protocol Boundary
 
-All vehicle messages are enveloped in `openc2.proto`. Extension protos define what goes **inside** the `extensions` bytes field — nested payloads within the OpenC2 envelope, not alternatives to it.
+All vehicle messages are enveloped in `pidgin.proto`. Extension protos define what goes **inside** the `extensions` bytes field — nested payloads within the Pidgin envelope, not alternatives to it.
 
 ```
-VehicleTelemetry (openc2.proto)
-  ├── location, speed, heading, status    ← core (typed, validated by gateway)
+VehicleTelemetry (pidgin.proto)
+  ├── location, speed, heading, status    ← core (typed, validated by server)
   ├── supported_extensions: ["husky"] ← capability advertisement
   └── extensions:
         "husky" → ExtensionData            ← versioned bytes, decoded by codec
@@ -110,7 +110,7 @@ VehicleTelemetry (openc2.proto)
               payload: <HuskyTelemetry proto bytes>
 ```
 
-**Core absorbs universals.** If a concept applies to >2 vehicle types (sensors, missions, payloads), it belongs in `openc2.proto` as a first-class field — not as an extension that every team must implement independently.
+**Core absorbs universals.** If a concept applies to >2 vehicle types (sensors, missions, payloads), it belongs in `pidgin.proto` as a first-class field — not as an extension that every team must implement independently.
 
 **Extensions own domain state.** If a concept is project-specific (drive mode, bumper contacts, gimbal pitch), it belongs in a codec with its own proto and manifest.
 
@@ -122,7 +122,7 @@ Namespace collisions are a governance problem, not just a CI check. Rules are en
 
 ```
 TIER 1: Core Protocol  (Reserved — NOT valid extension namespaces)
-  sensors, sensor, camera, mission, payload, core, openc2
+  sensors, sensor, camera, mission, payload, core, pidgin
 
 TIER 2: Domain Extensions  (team-prefixed)
   husky.drive, husky.bumpers
@@ -136,7 +136,7 @@ TIER 3: Vendor/Project Extensions  (org-prefixed)
 
 | Rule | Rationale |
 |------|-----------|
-| Core absorbs universal concepts | Sensors and missions belong in `openc2.proto`, not extensions |
+| Core absorbs universal concepts | Sensors and missions belong in `pidgin.proto`, not extensions |
 | Extensions use `domain.component` format | Ownership is unambiguous; no "camera" collision |
 | No bare single-word namespaces | Exception: legacy namespaces grandfathered in |
 | Org prefix for proprietary extensions | Clearly not shared platform code |
@@ -148,8 +148,8 @@ TIER 3: Vendor/Project Extensions  (org-prefixed)
 For MVP, all extensions live **in-tree** under `internal/extensions/`. Splitting adds overhead that isn't justified until there are multiple contributing teams.
 
 ```
-openc2-gateway/
-├── api/proto/openc2.proto          # Core protocol
+tower-server/
+├── api/proto/pidgin.proto          # Core protocol
 ├── internal/
 │   ├── extensions/
 │   │   ├── registry.go             # Codec registry
@@ -162,7 +162,7 @@ openc2-gateway/
 │   ├── protocol/
 │   ├── registry/
 │   └── ...
-├── cmd/gateway/
+├── cmd/tower-server/
 └── docs/
 ```
 
@@ -170,7 +170,7 @@ openc2-gateway/
 
 | Trigger | Action |
 |---------|--------|
-| 3+ extensions with separate owners | `openc2-extensions/` monorepo |
+| 3+ extensions with separate owners | `pidgin-extensions/` monorepo |
 | External team needs independent CI | Separate repo with CODEOWNERS |
 | Breaking change coordination friction | Buf.build schema registry |
 
@@ -180,12 +180,12 @@ openc2-gateway/
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Protocol format (vehicle ↔ gateway) | protobuf over UDP multicast | Compact, no infrastructure, tolerates loss |
-| Protocol format (gateway ↔ UI) | JSON over WebSocket | No protobuf in browser; full-duplex for commands |
+| Protocol format (vehicle ↔ server) | protobuf over UDP multicast | Compact, no infrastructure, tolerates loss |
+| Protocol format (server ↔ UI) | JSON over WebSocket | No protobuf in browser; full-duplex for commands |
 | Extension encoding | proto for wire, JSON for UI | Type-safe wire; no binary in WebSocket |
-| Extension validation boundary | **Both** — gateway rejects malformed, UI provides UX | Defense in depth |
-| Manifest deployment | Static JSON (MVP) → gateway serves at runtime (Phase 2) | Simple first, dynamic when needed |
+| Extension validation boundary | **Both** — server rejects malformed, UI provides UX | Defense in depth |
+| Manifest deployment | Static JSON (MVP) → server serves at runtime (Phase 2) | Simple first, dynamic when needed |
 | Multiple namespaces per vehicle | Allowed — a vehicle can have `husky` + `camera` | Composition over inheritance |
 | Unknown extensions | Fail with `_error` field, don't drop telemetry | Graceful degradation; clear integration signal |
-| Timestamp authority | Gateway clock (`gts`) is authoritative; vehicle `ts` is untrusted | Vehicles lack RTC/NTP; clock skew is common |
+| Timestamp authority | Server clock (`gts`) is authoritative; vehicle `ts` is untrusted | Vehicles lack RTC/NTP; clock skew is common |
 | Command ordering guarantee | WebSocket in-order delivery; no retransmit | Commands are idempotent by contract |

@@ -1,4 +1,4 @@
-# Gateway Package Map
+# Server Package Map
 
 One-page reference for what each package in `internal/` owns, its key types, and what it does not do. Use this to orient quickly before editing code.
 
@@ -6,14 +6,14 @@ One-page reference for what each package in `internal/` owns, its key types, and
 
 ## `internal/protocol`
 
-**Owns:** The JSON wire format between gateway and UI clients.
+**Owns:** The JSON wire format between server and UI clients.
 
 | File | Responsibility |
 |---|---|
 | `frame.go` | All JSON types: `Frame`, payloads, command structs |
 | `translate.go` | Protobuf → `Frame` (inbound) and `Frame` → protobuf (outbound) |
 | `validate.go` | Frame validation (version, required fields, type checks) |
-| `builders.go` | Factory functions for gateway-originated frames (status, heartbeat, etc.) |
+| `builders.go` | Factory functions for server-originated frames (status, heartbeat, etc.) |
 | `sequence.go` | `SequenceTracker` — deduplicates repeated UDP telemetry by sequence number |
 
 **Key types:** `Frame`, `TelemetryPayload`, `CommandPayload` (interface), `GotoCommand`, `StopCommand`, `ReturnHomeCommand`, `SetModeCommand`, `SetSpeedCommand`, `HelloPayload`, `WelcomePayload`, `ErrorPayload`, `SequenceTracker`

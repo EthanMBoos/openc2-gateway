@@ -8,7 +8,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 	"golang.org/x/net/ipv4"
 )
 

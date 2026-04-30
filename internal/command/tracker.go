@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 )
 
 // PendingCommand represents a command awaiting vehicle acknowledgment.
@@ -29,11 +29,11 @@ type PendingCommand struct {
 // TrackerConfig holds configuration for the command tracker.
 type TrackerConfig struct {
 	// Timeout is how long to wait for a vehicle ack before sending synthetic timeout.
-	// Default: 5 seconds (OPENC2_CMD_TIMEOUT)
+	// Default: 5 seconds (TOWER_CMD_TIMEOUT)
 	Timeout time.Duration
 
 	// RateLimit is max commands per second per vehicle.
-	// Default: 10 (OPENC2_CMD_RATE_LIMIT)
+	// Default: 10 (TOWER_CMD_RATE_LIMIT)
 	RateLimit int
 
 	// RateWindow is the sliding window for rate limiting.
@@ -114,7 +114,7 @@ func (t *Tracker) Track(commandID, vehicleID, commandType string) TrackResult {
 		return TrackResult{
 			Accepted: false,
 			Error:    fmt.Errorf("command %s already pending", commandID),
-			RejectionFrame: protocol.NewGatewayCommandAckFrame(
+			RejectionFrame: protocol.NewServerCommandAckFrame(
 				vehicleID, commandID, protocol.AckRejected,
 				fmt.Sprintf("Duplicate commandId: %s", commandID),
 			),

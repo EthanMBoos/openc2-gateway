@@ -1,19 +1,19 @@
 // Package blueboat provides the extension codec for BlueRobotics BlueBoat USV.
 //
 // This codec decodes BlueBoat-specific telemetry and encodes commands.
-// It registers itself via init() — import this package in cmd/gateway/main.go
+// It registers itself via init() — import this package in cmd/tower-server/main.go
 // to enable BlueBoat support.
 //
 // Usage:
 //
-//	import _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/blueboat"
+//	import _ "github.com/EthanMBoos/tower-server/internal/extensions/blueboat"
 package blueboat
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
 	"google.golang.org/protobuf/proto"
 )
 

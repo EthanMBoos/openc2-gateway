@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
-	"github.com/EthanMBoos/openc2-gateway/internal/registry"
+	pb "github.com/EthanMBoos/tower-server/api/proto"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/registry"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -122,7 +122,7 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 	if cmdData.CommandID == "" {
 		return r.errorResult(protocol.ErrInvalidMessage, "missing commandId")
 	}
-	if frame.VehicleID == "" || frame.VehicleID == protocol.VehicleIDClient || frame.VehicleID == protocol.VehicleIDGateway {
+	if frame.VehicleID == "" || frame.VehicleID == protocol.VehicleIDClient || frame.VehicleID == protocol.VehicleIDServer {
 		return r.errorResult(protocol.ErrInvalidMessage, "invalid target vehicle ID")
 	}
 
@@ -169,9 +169,9 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 		return r.errorResult(protocol.ErrInvalidMessage, err.Error())
 	}
 
-	// Wrap in GatewayMessage envelope
-	gwMsg := &pb.GatewayMessage{
-		Payload: &pb.GatewayMessage_Command{
+	// Wrap in ServerMessage envelope
+	gwMsg := &pb.ServerMessage{
+		Payload: &pb.ServerMessage_Command{
 			Command: pbCmd,
 		},
 	}
@@ -203,10 +203,10 @@ func (r *Router) Route(frame *protocol.Frame) RouteResult {
 		"command_id", cmdData.CommandID,
 	)
 
-	// Return immediate gateway ack
+	// Return immediate server ack
 	return RouteResult{
 		Success: true,
-		Frame: protocol.NewGatewayCommandAckFrame(
+		Frame: protocol.NewServerCommandAckFrame(
 			frame.VehicleID,
 			cmdData.CommandID,
 			protocol.AckAccepted,

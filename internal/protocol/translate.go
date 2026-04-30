@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
+	pb "github.com/EthanMBoos/tower-server/api/proto"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -128,7 +128,7 @@ func TelemetryToFrame(msg *pb.VehicleTelemetry) (*Frame, error) {
 		Type:               TypeTelemetry,
 		VehicleID:          msg.VehicleId,
 		TimestampMs:        msg.TimestampMs,
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data:               payload,
 	}, nil
 }
@@ -157,7 +157,7 @@ func HeartbeatToFrame(msg *pb.Heartbeat) (*Frame, error) {
 		Type:               TypeHeartbeat,
 		VehicleID:          msg.VehicleId,
 		TimestampMs:        msg.TimestampMs,
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data:               payload,
 	}, nil
 }
@@ -195,7 +195,7 @@ func AlertToFrame(msg *pb.Alert) (*Frame, error) {
 		Type:               TypeAlert,
 		VehicleID:          msg.VehicleId,
 		TimestampMs:        msg.TimestampMs,
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data:               payload,
 	}, nil
 }
@@ -223,7 +223,7 @@ func CommandAckToFrame(msg *pb.CommandAck) (*Frame, error) {
 		Type:               TypeCommandAck,
 		VehicleID:          msg.VehicleId,
 		TimestampMs:        msg.TimestampMs,
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data:               payload,
 	}, nil
 }

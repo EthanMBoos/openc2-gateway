@@ -1,6 +1,6 @@
 {
-  "_comment": "Sample command frames from UI to gateway.",
-  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  "_comment": "Sample command frames from UI to server.",
+  "_source_of_truth": "tower-server/internal/protocol/frame.go",
   
   "hello": {
     "protocolVersion": 1,

@@ -1,10 +1,10 @@
 # BlueBoat Extension Manifest
 #
 # Defines UI metadata for the BlueRobotics BlueBoat USV extension.
-# The gateway reads this at startup and includes it in the welcome payload.
+# The server reads this at startup and includes it in the welcome payload.
 #
 # EDITING THIS FILE:
-# - Changes take effect on gateway restart
+# - Changes take effect on server restart
 # - No Go code changes required
 # - Parameters define what form inputs the UI renders
 # - TargetMode controls single vs broadcast targeting options

@@ -1,10 +1,10 @@
-// Package protocol defines the JSON wire types for gateway ↔ UI communication.
+// Package protocol defines the JSON wire types for server ↔ UI communication.
 // These types implement the PROTOCOL.md specification and are decoupled from
-// the protobuf types used for vehicle ↔ gateway communication.
+// the protobuf types used for vehicle ↔ server communication.
 //
 // NAMING CONVENTION:
-// - Protobuf (vehicle ↔ gateway): snake_case (e.g., battery_pct, vehicle_id)
-// - JSON (gateway ↔ UI): camelCase (e.g., batteryPercent, vehicleId)
+// - Protobuf (vehicle ↔ server): snake_case (e.g., battery_pct, vehicle_id)
+// - JSON (server ↔ UI): camelCase (e.g., batteryPercent, vehicleId)
 //
 // This is intentional and follows industry conventions for each format.
 // The translate.go file handles the mapping between these conventions.
@@ -17,7 +17,7 @@ type Frame struct {
 	Type               string      `json:"type"`                         // Message type identifier
 	VehicleID          string      `json:"vehicleId"`                    // Vehicle ID (source or target)
 	TimestampMs        int64       `json:"timestampMs"`                  // Vehicle timestamp (UNTRUSTED - display only)
-	GatewayTimestampMs int64       `json:"gatewayTimestampMs,omitempty"` // Gateway timestamp (authoritative)
+	ServerTimestampMs int64       `json:"serverTimestampMs,omitempty"` // Server timestamp (authoritative)
 	Command            string      `json:"command,omitempty"`            // Command type (for type="command" frames)
 	Data               interface{} `json:"data"`                         // Type-specific payload
 }
@@ -44,7 +44,7 @@ const (
 
 // Special vehicle IDs used for system messages
 const (
-	VehicleIDGateway = "_gateway" // Messages originating from the gateway
+	VehicleIDServer = "_server" // Messages originating from the server
 	VehicleIDClient  = "_client"  // Messages originating from UI clients
 	VehicleIDFleet   = "_fleet"   // Fleet-wide broadcast messages
 )
@@ -188,7 +188,7 @@ const (
 	AckRejected  = "rejected"
 	AckCompleted = "completed"
 	AckFailed    = "failed"
-	AckTimeout   = "timeout" // Synthetic: gateway sends when vehicle doesn't respond
+	AckTimeout   = "timeout" // Synthetic: server sends when vehicle doesn't respond
 )
 
 // ----------------------------------------------------------------------------
@@ -233,7 +233,7 @@ type VehicleSummary struct {
 }
 
 // ----------------------------------------------------------------------------
-// Commands (UI → Gateway)
+// Commands (UI → Server)
 // ----------------------------------------------------------------------------
 
 // CommandPayload is the base for all command types.
@@ -324,37 +324,37 @@ type HelloPayload struct {
 	ClientType      *string `json:"clientType,omitempty"` // ui, monitor, replay
 }
 
-// WelcomePayload is sent by gateway in response to hello.
+// WelcomePayload is sent by server in response to hello.
 //
 // EXTENSION DISCOVERY FLOW:
-// The gateway is the single source of truth for what extensions exist. On startup,
-// codecs self-register via init() and the gateway collects their namespaces/versions.
+// The server is the single source of truth for what extensions exist. On startup,
+// codecs self-register via init() and the server collects their namespaces/versions.
 // When a UI connects:
 //
-//  1. Gateway sends `welcome` with:
-//     - AvailableExtensions: namespaces the gateway can decode (from registered codecs)
+//  1. Server sends `welcome` with:
+//     - AvailableExtensions: namespaces the server can decode (from registered codecs)
 //     - Manifests: UI metadata per extension (commands, labels, confirmation flags)
 //
 //  2. Vehicles advertise which extensions they support via `supportedExtensions` in telemetry
 //
-//  3. UI filters command buttons by: gateway.available ∩ vehicle.supported
-//     - A button only appears if BOTH gateway can route it AND vehicle can execute it
+//  3. UI filters command buttons by: server.available ∩ vehicle.supported
+//     - A button only appears if BOTH server can route it AND vehicle can execute it
 //
-// This decouples extension releases from gateway releases — adding a new extension
-// is a single codec import in cmd/gateway/main.go, no config files needed.
+// This decouples extension releases from server releases — adding a new extension
+// is a single codec import in cmd/tower-server/main.go, no config files needed.
 //
 // See docs/EXTENSIBILITY.md for the full extension architecture.
 type WelcomePayload struct {
-	GatewayVersion      string                       `json:"gatewayVersion"`
+	ServerVersion      string                       `json:"serverVersion"`
 	ProtocolVersion     int                          `json:"protocolVersion"`
-	SupportedVersions   []int                        `json:"supportedVersions"` // All protocol versions gateway can speak
+	SupportedVersions   []int                        `json:"supportedVersions"` // All protocol versions server can speak
 	Fleet               []VehicleSummary             `json:"fleet"`
 	Config              WelcomeConfig                `json:"config"`
-	AvailableExtensions []AvailableExtension         `json:"availableExtensions,omitempty"` // Extensions the gateway can decode
+	AvailableExtensions []AvailableExtension         `json:"availableExtensions,omitempty"` // Extensions the server can decode
 	Manifests           map[string]ExtensionManifest `json:"manifests,omitempty"`           // Full manifest per extension namespace
 }
 
-// AvailableExtension describes an extension the gateway can decode.
+// AvailableExtension describes an extension the server can decode.
 // Collected from registered codecs at startup.
 type AvailableExtension struct {
 	Namespace string `json:"namespace"` // Extension namespace (e.g., "husky")
@@ -419,7 +419,7 @@ const (
 	TargetModeBoth      = "both"      // UI shows a toggle letting operator choose single OR broadcast at command time
 )
 
-// WelcomeConfig contains gateway configuration shared with clients.
+// WelcomeConfig contains server configuration shared with clients.
 type WelcomeConfig struct {
 	TelemetryRateHz     int `json:"telemetryRateHz"`
 	HeartbeatIntervalMs int `json:"heartbeatIntervalMs"`

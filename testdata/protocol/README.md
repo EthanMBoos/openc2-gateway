@@ -1,6 +1,6 @@
 # Protocol Test Fixtures
 
-Shared JSON fixtures for validating OpenC2 ↔ Gateway protocol conformance.
+Shared JSON fixtures for validating Tower ↔ Server protocol conformance.
 
 **Source of truth:** `internal/protocol/frame.go`
 
@@ -10,11 +10,11 @@ These fixtures are **identical in both repos** to catch protocol drift early. Bo
 
 | File | Description |
 |------|-------------|
-| `telemetry.json` | Telemetry frame (gateway → UI) with position, speed, extensions |
+| `telemetry.json` | Telemetry frame (server → UI) with position, speed, extensions |
 | `heartbeat.json` | Heartbeat frame with full capability advertisement |
 | `welcome.json` | Welcome response containing fleet bootstrap data |
-| `commands.json` | All command types (hello, goto, stop, etc.) from UI → gateway |
-| `responses.json` | Acks, alerts, errors, status transitions from gateway → UI |
+| `commands.json` | All command types (hello, goto, stop, etc.) from UI → server |
+| `responses.json` | Acks, alerts, errors, status transitions from server → UI |
 
 ## Usage
 
@@ -28,7 +28,7 @@ import (
     "os"
     "testing"
     
-    "github.com/EthanMBoos/openc2-gateway/internal/protocol"
+    "github.com/EthanMBoos/tower-server/internal/protocol"
 )
 
 func TestTelemetryFixture(t *testing.T) {
@@ -77,12 +77,12 @@ When modifying the protocol:
 
 1. **Update frame.go first** — Go structs are authoritative
 2. **Update fixtures here** — Adjust JSON to match new schema
-3. **Copy fixtures to OpenC2** — Keep them identical
+3. **Copy fixtures to Tower** — Keep them identical
 4. **Run tests in both repos** — Catch any drift
 
 ```bash
 # Quick sync check
-diff -r ./testdata/protocol ../OpenC2/testdata/protocol
+diff -r ./testdata/protocol ../Tower/testdata/protocol
 ```
 
 ## Integration with translate_test.go

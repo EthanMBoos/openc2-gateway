@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
+	pb "github.com/EthanMBoos/tower-server/api/proto"
 )
 
 // ----------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-module github.com/EthanMBoos/openc2-gateway
+module github.com/EthanMBoos/tower-server
 
 go 1.26.1
 

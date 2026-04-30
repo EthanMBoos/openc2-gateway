@@ -1,4 +1,4 @@
-// Package config provides configuration management for the gateway.
+// Package config provides configuration management for the server.
 // Configuration is loaded from environment variables with sensible defaults.
 package config
 
@@ -18,30 +18,30 @@ type MulticastSourceConfig struct {
 	Label string `yaml:"label" json:"label"` // Human-readable label for logging
 }
 
-// Config holds all gateway configuration.
+// Config holds all server configuration.
 type Config struct {
 	// WebSocket settings
-	WSPort int // OPENC2_WS_PORT (default: 9000)
+	WSPort int // TOWER_WS_PORT (default: 9000)
 
 	// Multicast telemetry sources (inbound from vehicles)
-	// OPENC2_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551"
+	// TOWER_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551"
 	// Default: 239.255.0.1:14550
 	MulticastSources []MulticastSourceConfig
 
 	// Multicast settings for commands (outbound)
-	CmdMulticastGroup string // OPENC2_CMD_MCAST_GROUP (default: 239.255.0.2)
-	CmdMulticastPort  int    // OPENC2_CMD_MCAST_PORT (default: 14551)
+	CmdMulticastGroup string // TOWER_CMD_MCAST_GROUP (default: 239.255.0.2)
+	CmdMulticastPort  int    // TOWER_CMD_MCAST_PORT (default: 14551)
 
 	// Vehicle status timeouts
-	StandbyTimeout time.Duration // OPENC2_STANDBY_TIMEOUT (default: 3s)
-	OfflineTimeout time.Duration // OPENC2_OFFLINE_TIMEOUT (default: 10s)
+	StandbyTimeout time.Duration // TOWER_STANDBY_TIMEOUT (default: 3s)
+	OfflineTimeout time.Duration // TOWER_OFFLINE_TIMEOUT (default: 10s)
 
 	// Command settings
-	CmdTimeout   time.Duration // OPENC2_CMD_TIMEOUT (default: 5s)
-	CmdRateLimit int           // OPENC2_CMD_RATE_LIMIT (default: 10 per second per vehicle)
+	CmdTimeout   time.Duration // TOWER_CMD_TIMEOUT (default: 5s)
+	CmdRateLimit int           // TOWER_CMD_RATE_LIMIT (default: 10 per second per vehicle)
 
-	// Gateway metadata
-	GatewayVersion string // Injected at build time
+	// Server metadata
+	ServerVersion string // Injected at build time
 }
 
 // Default multicast addresses per PROTOCOL.md
@@ -65,7 +65,7 @@ func Default() Config {
 		OfflineTimeout:    10 * time.Second,
 		CmdTimeout:        5 * time.Second,
 		CmdRateLimit:      10,
-		GatewayVersion:    "0.1.0",
+		ServerVersion:    "0.1.0",
 	}
 }
 
@@ -76,57 +76,57 @@ func Load() (Config, error) {
 	var err error
 
 	// WebSocket port
-	if v := os.Getenv("OPENC2_WS_PORT"); v != "" {
+	if v := os.Getenv("TOWER_WS_PORT"); v != "" {
 		cfg.WSPort, err = strconv.Atoi(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_WS_PORT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_WS_PORT: %w", err)
 		}
 	}
 
 	// Multicast settings (commands)
-	if v := os.Getenv("OPENC2_CMD_MCAST_GROUP"); v != "" {
+	if v := os.Getenv("TOWER_CMD_MCAST_GROUP"); v != "" {
 		cfg.CmdMulticastGroup = v
 	}
-	if v := os.Getenv("OPENC2_CMD_MCAST_PORT"); v != "" {
+	if v := os.Getenv("TOWER_CMD_MCAST_PORT"); v != "" {
 		cfg.CmdMulticastPort, err = strconv.Atoi(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_CMD_MCAST_PORT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_CMD_MCAST_PORT: %w", err)
 		}
 	}
 
 	// Timeouts
-	if v := os.Getenv("OPENC2_STANDBY_TIMEOUT"); v != "" {
+	if v := os.Getenv("TOWER_STANDBY_TIMEOUT"); v != "" {
 		cfg.StandbyTimeout, err = time.ParseDuration(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_STANDBY_TIMEOUT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_STANDBY_TIMEOUT: %w", err)
 		}
 	}
-	if v := os.Getenv("OPENC2_OFFLINE_TIMEOUT"); v != "" {
+	if v := os.Getenv("TOWER_OFFLINE_TIMEOUT"); v != "" {
 		cfg.OfflineTimeout, err = time.ParseDuration(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_OFFLINE_TIMEOUT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_OFFLINE_TIMEOUT: %w", err)
 		}
 	}
-	if v := os.Getenv("OPENC2_CMD_TIMEOUT"); v != "" {
+	if v := os.Getenv("TOWER_CMD_TIMEOUT"); v != "" {
 		cfg.CmdTimeout, err = time.ParseDuration(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_CMD_TIMEOUT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_CMD_TIMEOUT: %w", err)
 		}
 	}
 
 	// Command rate limit
-	if v := os.Getenv("OPENC2_CMD_RATE_LIMIT"); v != "" {
+	if v := os.Getenv("TOWER_CMD_RATE_LIMIT"); v != "" {
 		cfg.CmdRateLimit, err = strconv.Atoi(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_CMD_RATE_LIMIT: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_CMD_RATE_LIMIT: %w", err)
 		}
 	}
 
 	// Multicast telemetry sources
-	if v := os.Getenv("OPENC2_MCAST_SOURCES"); v != "" {
+	if v := os.Getenv("TOWER_MCAST_SOURCES"); v != "" {
 		cfg.MulticastSources, err = parseMulticastSources(v)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid OPENC2_MCAST_SOURCES: %w", err)
+			return cfg, fmt.Errorf("invalid TOWER_MCAST_SOURCES: %w", err)
 		}
 	}
 	// Otherwise keep default from Default()

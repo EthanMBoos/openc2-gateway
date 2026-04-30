@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
+	pb "github.com/EthanMBoos/tower-server/api/proto"
 )
 
 var (
@@ -42,7 +42,7 @@ func All() []Codec {
 	return result
 }
 
-// AvailableExtension describes an extension the gateway can decode.
+// AvailableExtension describes an extension the server can decode.
 // Used to build the welcome message.
 type AvailableExtension struct {
 	Namespace string

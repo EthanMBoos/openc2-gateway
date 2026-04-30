@@ -1,10 +1,10 @@
-// Package protocol provides frame builders for gateway-originated messages.
+// Package protocol provides frame builders for server-originated messages.
 package protocol
 
 import "fmt"
 
 // ----------------------------------------------------------------------------
-// Frame Builders (Gateway → UI)
+// Frame Builders (Server → UI)
 // ----------------------------------------------------------------------------
 
 // NewStatusFrame creates a status change frame.
@@ -15,7 +15,7 @@ func NewStatusFrame(vehicleID string, status string, signalStrength *int, source
 		Type:               TypeStatus,
 		VehicleID:          vehicleID,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: StatusPayload{
 			Status:         status,
 			SignalStrength: signalStrength,
@@ -27,7 +27,7 @@ func NewStatusFrame(vehicleID string, status string, signalStrength *int, source
 // NewWelcomeFrame creates a welcome response frame.
 // availableExtensions and manifests can be nil if no extensions are registered.
 func NewWelcomeFrame(
-	gatewayVersion string,
+	serverVersion string,
 	fleet []VehicleSummary,
 	telemetryRateHz, heartbeatIntervalMs int,
 	availableExtensions []AvailableExtension,
@@ -36,11 +36,11 @@ func NewWelcomeFrame(
 	return &Frame{
 		ProtocolVersion:    ProtocolVersion,
 		Type:               TypeWelcome,
-		VehicleID:          VehicleIDGateway,
+		VehicleID:          VehicleIDServer,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: WelcomePayload{
-			GatewayVersion:    gatewayVersion,
+			ServerVersion:    serverVersion,
 			ProtocolVersion:   ProtocolVersion,
 			SupportedVersions: []int{ProtocolVersion},
 			Fleet:             fleet,
@@ -59,9 +59,9 @@ func NewErrorFrame(code string, message string) *Frame {
 	return &Frame{
 		ProtocolVersion:    ProtocolVersion,
 		Type:               TypeError,
-		VehicleID:          VehicleIDGateway,
+		VehicleID:          VehicleIDServer,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: ErrorPayload{
 			Code:    code,
 			Message: message,
@@ -75,9 +75,9 @@ func NewCommandErrorFrame(code string, message string, commandID string) *Frame 
 	return &Frame{
 		ProtocolVersion:    ProtocolVersion,
 		Type:               TypeError,
-		VehicleID:          VehicleIDGateway,
+		VehicleID:          VehicleIDServer,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: ErrorPayload{
 			Code:      code,
 			Message:   message,
@@ -104,7 +104,7 @@ func NewFleetStatusFrame(vehicles []VehicleSummary) *Frame {
 		Type:               TypeFleetStatus,
 		VehicleID:          VehicleIDFleet,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: FleetStatusPayload{
 			Vehicles:     vehicles,
 			TotalOnline:  online,
@@ -113,8 +113,8 @@ func NewFleetStatusFrame(vehicles []VehicleSummary) *Frame {
 	}
 }
 
-// NewGatewayCommandAckFrame creates an ack from the gateway (not vehicle).
-func NewGatewayCommandAckFrame(vehicleID, commandID, status, message string) *Frame {
+// NewServerCommandAckFrame creates an ack from the server (not vehicle).
+func NewServerCommandAckFrame(vehicleID, commandID, status, message string) *Frame {
 	payload := CommandAckPayload{
 		CommandID: commandID,
 		Status:    status,
@@ -128,7 +128,7 @@ func NewGatewayCommandAckFrame(vehicleID, commandID, status, message string) *Fr
 		Type:               TypeCommandAck,
 		VehicleID:          vehicleID,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data:               payload,
 	}
 }
@@ -137,17 +137,17 @@ func NewGatewayCommandAckFrame(vehicleID, commandID, status, message string) *Fr
 // This tells the UI the command outcome is unknown (vehicle may or may not have received it).
 func NewTimeoutAckFrame(vehicleID, commandID string, timeoutSeconds int) *Frame {
 	msg := fmt.Sprintf("No response from vehicle within %ds", timeoutSeconds)
-	return NewGatewayCommandAckFrame(vehicleID, commandID, AckTimeout, msg)
+	return NewServerCommandAckFrame(vehicleID, commandID, AckTimeout, msg)
 }
 
-// NewGatewayAlertFrame creates an alert from the gateway (system alerts).
-func NewGatewayAlertFrame(vehicleID, severity, code, message string, location *Location) *Frame {
+// NewServerAlertFrame creates an alert from the server (system alerts).
+func NewServerAlertFrame(vehicleID, severity, code, message string, location *Location) *Frame {
 	return &Frame{
 		ProtocolVersion:    ProtocolVersion,
 		Type:               TypeAlert,
 		VehicleID:          vehicleID,
 		TimestampMs:        nowMs(),
-		GatewayTimestampMs: nowMs(),
+		ServerTimestampMs: nowMs(),
 		Data: AlertPayload{
 			Severity: severity,
 			Code:     code,

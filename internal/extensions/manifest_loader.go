@@ -6,7 +6,7 @@
 // To add a new extension:
 // 1. Create internal/extensions/<name>/manifest.yaml
 // 2. Create internal/extensions/<name>/codec.go with init() that calls extensions.Register()
-// 3. Import the extension in cmd/gateway/main.go
+// 3. Import the extension in cmd/tower-server/main.go
 //
 // The manifest is loaded automatically when LoadManifest is called.
 package extensions

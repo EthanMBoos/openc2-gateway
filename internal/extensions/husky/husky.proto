@@ -1,7 +1,7 @@
 // Husky UGV Extension Protocol
 //
 // Extension telemetry and command definitions for Clearpath Husky A200 UGV.
-// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+// This is an extension proto — payloads are carried inside pidgin.ExtensionData.
 //
 // See docs/EXTENSIBILITY.md for extension architecture.
 
@@ -9,10 +9,10 @@ syntax = "proto3";
 
 package husky;
 
-option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky";
+option go_package = "github.com/EthanMBoos/tower-server/internal/extensions/husky";
 
 // ============================================================================
-// Telemetry (Vehicle → Gateway)
+// Telemetry (Vehicle → Server)
 // ============================================================================
 
 // HuskyTelemetry contains Husky-specific state sent in VehicleTelemetry.extensions["husky"].
@@ -55,7 +55,7 @@ message BumperContacts {
 }
 
 // ============================================================================
-// Commands (Gateway → Vehicle)
+// Commands (Server → Vehicle)
 // ============================================================================
 
 // SetDriveModeCommand changes the drive mode.

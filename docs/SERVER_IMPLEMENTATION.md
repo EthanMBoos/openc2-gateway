@@ -1,6 +1,6 @@
-# OpenC2-Gateway Implementation Plan
+# Tower-Server Implementation Plan
 
-> Build-out plan for the Go gateway bridging vehicles to the OpenC2 UI.  
+> Build-out plan for the Go server bridging vehicles to the Tower.  
 > For system topology and package map see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ---
@@ -11,8 +11,8 @@ The following are complete in `internal/`:
 
 | Component | Location | Description |
 |-----------|----------|-------------|
-| Proto definitions | `api/proto/openc2.proto` | Protobuf schema for vehicle↔gateway |
-| Frame types | `internal/protocol/frame.go` | JSON wire types for gateway↔UI |
+| Proto definitions | `api/proto/pidgin.proto` | Protobuf schema for vehicle↔server |
+| Frame types | `internal/protocol/frame.go` | JSON wire types for server↔UI |
 | Sequence tracker | `internal/protocol/sequence.go` | Per-vehicle deduplication with wrap-around |
 | Registry | `internal/registry/registry.go` | Vehicle tracking + status state machine |
 | Proto→JSON translation | `internal/protocol/translate.go` | `DecodeVehicleMessage()` entry point |
@@ -28,19 +28,19 @@ The following are complete in `internal/`:
 
 ### 1.1 Config + Entry Point
 
-Create `cmd/gateway/main.go` and `internal/config/config.go`:
+Create `cmd/tower-server/main.go` and `internal/config/config.go`:
 
 ```go
 type Config struct {
-    MulticastGroup string        `env:"OPENC2_MCAST_GROUP" default:"239.255.0.1"`
-    MulticastPort  int           `env:"OPENC2_MCAST_PORT" default:"14550"`
-    WSPort         int           `env:"OPENC2_WS_PORT" default:"9000"`
-    StandbyTimeout time.Duration `env:"OPENC2_STANDBY_TIMEOUT" default:"3s"`
-    OfflineTimeout time.Duration `env:"OPENC2_OFFLINE_TIMEOUT" default:"10s"`
+    MulticastGroup string        `env:"TOWER_MCAST_GROUP" default:"239.255.0.1"`
+    MulticastPort  int           `env:"TOWER_MCAST_PORT" default:"14550"`
+    WSPort         int           `env:"TOWER_WS_PORT" default:"9000"`
+    StandbyTimeout time.Duration `env:"TOWER_STANDBY_TIMEOUT" default:"3s"`
+    OfflineTimeout time.Duration `env:"TOWER_OFFLINE_TIMEOUT" default:"10s"`
 }
 ```
 
-- [x] Create `cmd/gateway/main.go` with signal handling + graceful shutdown
+- [x] Create `cmd/tower-server/main.go` with signal handling + graceful shutdown
 - [x] Create `internal/config/config.go` with env loading
 - [x] Wire existing `registry` and `protocol` packages
 
@@ -67,8 +67,8 @@ Per [PROTOCOL.md](PROTOCOL.md):
 
 **Cleanup (run before/after tests):**
 ```bash
-# Kill gateway binaries (go run spawns child processes with these names)
-pkill -f gateway 2>/dev/null || true
+# Kill server binaries (go run spawns child processes with these names)
+pkill -f server 2>/dev/null || true
 pkill -f testclient 2>/dev/null || true  
 pkill -f testsender 2>/dev/null || true
 
@@ -85,20 +85,20 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 **Test: Default Configuration**
 ```bash
-# Start gateway with defaults
-go run ./cmd/gateway
+# Start server with defaults
+go run ./cmd/tower-server
 
 # Expected log output:
-# time=... level=INFO msg="starting openc2-gateway" version=0.1.0 ws_port=9000 mcast_group=239.255.0.1 mcast_port=14550
+# time=... level=INFO msg="starting tower-server" version=0.1.0 ws_port=9000 mcast_group=239.255.0.1 mcast_port=14550
 ```
 
 **Test: Custom Configuration**
 ```bash
 # Override defaults via environment
-OPENC2_WS_PORT=8080 \
-OPENC2_STANDBY_TIMEOUT=5s \
-OPENC2_OFFLINE_TIMEOUT=15s \
-go run ./cmd/gateway
+TOWER_WS_PORT=8080 \
+TOWER_STANDBY_TIMEOUT=5s \
+TOWER_OFFLINE_TIMEOUT=15s \
+go run ./cmd/tower-server
 
 # Verify in logs: ws_port=8080
 ```
@@ -106,9 +106,9 @@ go run ./cmd/gateway
 **Test: Invalid Configuration**
 ```bash
 # OfflineTimeout must be > StandbyTimeout
-OPENC2_STANDBY_TIMEOUT=10s \
-OPENC2_OFFLINE_TIMEOUT=5s \
-go run ./cmd/gateway
+TOWER_STANDBY_TIMEOUT=10s \
+TOWER_OFFLINE_TIMEOUT=5s \
+go run ./cmd/tower-server
 
 # Expected: error="invalid config: OfflineTimeout (5s) must be greater than StandbyTimeout (10s)"
 ```
@@ -122,8 +122,8 @@ go run ./cmd/gateway
 
 **Test: Basic Connection**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-test-01
@@ -132,19 +132,19 @@ go run ./cmd/testsender -vid ugv-test-01
 go run ./cmd/testclient
 
 # Expected output:
-# ✓ Connected to gateway
+# ✓ Connected to server
 # ✓ Sent hello
 # ✓ Received welcome (type=welcome)
 # ✓ Reading telemetry frames...
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender; pkill -f testclient
+pkill -f server; pkill -f testsender; pkill -f testclient
 ```
 
 **Test: Multiple Clients**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-test-01
@@ -160,7 +160,7 @@ curl http://localhost:9000/healthz
 # Both clients receive telemetry until duration expires
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender; pkill -f testclient
+pkill -f server; pkill -f testsender; pkill -f testclient
 ```
 
 **Test: Client Disconnection**
@@ -174,48 +174,48 @@ pkill -f gateway; pkill -f testsender; pkill -f testclient
 
 **What's Implemented:**
 - Client MUST send `hello` as first message
-- Gateway validates protocol version (currently v1)
-- Gateway responds with `welcome` containing fleet snapshot
+- Server validates protocol version (currently v1)
+- Server responds with `welcome` containing fleet snapshot
 - Telemetry only broadcast to handshaked clients
 
 > **Note:** Valid handshake is already tested in 1.2 via `testclient`. These tests cover error cases only.
 
 **Test: Protocol Version Mismatch**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Run testclient with bad version
 go run ./cmd/testclient -bad-version
 
 # Expected output:
-# ✓ Connected to gateway
+# ✓ Connected to server
 # Testing: bad protocol version...
 #   Sent hello with v=99
-#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
+#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_server",...}
 # ✓ Received expected PROTOCOL_VERSION_UNSUPPORTED error
 
 # Cleanup (any terminal):
-pkill -f gateway
+pkill -f server
 ```
 
 **Test: Missing Hello**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Run testclient skipping hello
 go run ./cmd/testclient -skip-hello
 
 # Expected output:
-# ✓ Connected to gateway
+# ✓ Connected to server
 # Testing: command without hello...
 #   Sent command without hello
-#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_gateway",...}
+#   Response: {"protocolVersion": 1,"type":"error","vehicleId": "_server",...}
 # ✓ Received expected INVALID_MESSAGE error
 
 # Cleanup (any terminal):
-pkill -f gateway
+pkill -f server
 ```
 
 #### 1.4 Testsender & Telemetry Format
@@ -235,7 +235,7 @@ pkill -f gateway
   "type": "telemetry",
   "vehicleId": "ugv-husky-01",
   "timestampMs": 1710700800000,
-  "gatewayTimestampMs": 1710700800000,
+  "serverTimestampMs": 1710700800000,
   "data": {
     "location": {"lat": 37.7749, "lng": -122.4194},
     "speed": 2.0,
@@ -295,7 +295,7 @@ go test ./... -v
 
 #### Testsender Usage
 
-> **Note:** The gateway must be running first (`go run ./cmd/gateway` in a separate terminal) for testsender telemetry to be received and broadcast to clients.
+> **Note:** The server must be running first (`go run ./cmd/tower-server` in a separate terminal) for testsender telemetry to be received and broadcast to clients.
 
 **Command Line Options:**
 ```bash
@@ -309,8 +309,8 @@ go run ./cmd/testsender --help
 
 **Multiple Vehicles:**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminals 2, 3, 4: Start multiple testsenders
 go run ./cmd/testsender -vid ugv-alpha -env ground
@@ -318,19 +318,19 @@ go run ./cmd/testsender -vid uav-bravo -env air
 go run ./cmd/testsender -vid usv-charlie -env marine
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 **Stress Test (high rate):**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start high-rate testsender
 go run ./cmd/testsender -vid stress-test -rate 100
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 ---
@@ -352,7 +352,7 @@ Commands: `goto`, `stop`, `return_home`, `set_mode`, `set_speed`
 
 **Cleanup (run before/after tests):**
 ```bash
-pkill -f gateway 2>/dev/null || true
+pkill -f server 2>/dev/null || true
 pkill -f testclient 2>/dev/null || true
 pkill -f testsender 2>/dev/null || true
 lsof -ti:9000 | xargs kill -9 2>/dev/null || true
@@ -372,8 +372,8 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 > **Prerequisite:** Install `websocat` for interactive WebSocket testing.
 
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender (vehicle must exist in registry to receive commands)
 go run ./cmd/testsender -vid ugv-husky-01
@@ -396,15 +396,15 @@ websocat ws://localhost:9000
 # Press Ctrl+C to exit websocat
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 > **Tip:** To reduce telemetry noise, use a lower rate testsender: `go run ./cmd/testsender -vid ugv-husky-01 -rate 1`
 
 **Test: Command to Unknown Vehicle**
 ```bash
-# Terminal 1: Start gateway (no testsender = no telemetry spam)
-go run ./cmd/gateway
+# Terminal 1: Start server (no testsender = no telemetry spam)
+go run ./cmd/tower-server
 
 # Terminal 2: Connect with websocat
 websocat ws://localhost:9000
@@ -416,10 +416,10 @@ websocat ws://localhost:9000
 {"protocolVersion":1,"type":"command","vehicleId":"nonexistent","timestampMs":0,"command":"stop","data":{"commandId":"cmd-002"}}
 
 # Expected error response:
-# {"protocolVersion":1,"type":"error","vehicleId":"_gateway","data":{"code":"VEHICLE_NOT_FOUND","message":"vehicle nonexistent not found in registry","commandId":"cmd-002"}}
+# {"protocolVersion":1,"type":"error","vehicleId":"_server","data":{"code":"VEHICLE_NOT_FOUND","message":"vehicle nonexistent not found in registry","commandId":"cmd-002"}}
 
 # Cleanup (any terminal):
-pkill -f gateway
+pkill -f server
 ```
 
 #### 3.2 Command Types Testing
@@ -439,8 +439,8 @@ pkill -f gateway
 **Test: All Core Commands**
 
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender with low rate (less spam)
 go run ./cmd/testsender -vid ugv-husky-01 -rate 1
@@ -467,7 +467,7 @@ go run ./cmd/testclient -cmd set_speed -vid ugv-husky-01 -speed 5.0
 # ✓ Command accepted: stop-xxx
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 **Test: Extension Commands (Husky)**
@@ -476,8 +476,8 @@ pkill -f gateway; pkill -f testsender
 > **Note:** Only the Husky extension is currently implemented in testclient. Other extensions would follow the same pattern.
 
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender with Husky vehicle ID
 go run ./cmd/testsender -vid ugv-husky-01 -rate 1
@@ -496,11 +496,11 @@ go run ./cmd/testclient -cmd ext -vid ugv-husky-01 -action setBumperSensitivity 
 
 # ⚠️  Expected result: COMMAND_NOT_SUPPORTED error
 # This is correct! testsender only simulates telemetry - it doesn't implement
-# command handling. The error proves routing works (gateway found the vehicle
+# command handling. The error proves routing works (server found the vehicle
 # and attempted to deliver the extension command).
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 > **Note:** To test extension commands end-to-end with ACKs, you'd need a vehicle/simulator that implements the Husky codec's command handlers. See [EXTENSIBILITY.md](EXTENSIBILITY.md) for the codec interface.
@@ -514,8 +514,8 @@ pkill -f gateway; pkill -f testsender
 
 **Test: Unknown Vehicle**
 ```bash
-# Terminal 1: Start gateway (no testsender)
-go run ./cmd/gateway
+# Terminal 1: Start server (no testsender)
+go run ./cmd/tower-server
 
 # Terminal 2: Send command to non-existent vehicle
 go run ./cmd/testclient -cmd stop -vid nonexistent-vehicle
@@ -524,13 +524,13 @@ go run ./cmd/testclient -cmd stop -vid nonexistent-vehicle
 # ✗ Error [VEHICLE_NOT_FOUND]: vehicle nonexistent-vehicle not found in registry
 
 # Cleanup:
-pkill -f gateway
+pkill -f server
 ```
 
 **Test: Invalid Mode Value**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-husky-01 -rate 1
@@ -542,7 +542,7 @@ go run ./cmd/testclient -cmd set_mode -vid ugv-husky-01 -mode turbo
 # ✗ Error [INVALID_MESSAGE]: invalid set_mode command: invalid mode: turbo
 
 # Cleanup:
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 #### 3.4 Rate Limiting Testing
@@ -554,8 +554,8 @@ pkill -f gateway; pkill -f testsender
 
 **Test: Rate Limit Exceeded**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-husky-01 -rate 1
@@ -569,13 +569,13 @@ go run ./cmd/testclient -cmd stop -vid ugv-husky-01 -burst 15
 # ✓ Rate limiting is working!
 
 # Cleanup:
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 **Test: Rate Limit Per-Vehicle**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2 & 3: Start two testsenders
 go run ./cmd/testsender -vid vehicle-a -rate 1
@@ -588,20 +588,20 @@ go run ./cmd/testclient -cmd stop -vid vehicle-b -burst 10
 # Both should show: ✓ Results: 10 accepted, 0 rate-limited
 
 # Cleanup:
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 #### 3.5 Command Timeout Testing
 
 **What's Implemented:**
 - Commands tracked pending vehicle ACK
-- Timeout after 5s (configurable via `OPENC2_CMD_TIMEOUT`)
+- Timeout after 5s (configurable via `TOWER_CMD_TIMEOUT`)
 - Synthetic timeout ACK broadcast to clients
 
 **Test: Command Timeout**
 ```bash
-# Terminal 1: Start gateway with short timeout (3s for faster testing)
-OPENC2_CMD_TIMEOUT=3s go run ./cmd/gateway
+# Terminal 1: Start server with short timeout (3s for faster testing)
+TOWER_CMD_TIMEOUT=3s go run ./cmd/tower-server
 
 # Terminal 2: Start testsender (provides a vehicle in registry)
 go run ./cmd/testsender -vid ugv-husky-01 -rate 1
@@ -611,14 +611,14 @@ go run ./cmd/testsender -vid ugv-husky-01 -rate 1
 go run ./cmd/testclient -cmd stop -vid ugv-husky-01 -wait 5s
 
 # Expected output:
-# ✓ Connected to gateway
+# ✓ Connected to server
 # → Sent stop to ugv-husky-01 (id=stop-xxx)
 # ✓ Command accepted: stop-xxx
 # → Waiting 5s for timeout ack...
 # ✓ Received timeout ack: No response from vehicle after 3 seconds
 
 # Cleanup:
-pkill -f gateway; pkill -f testsender
+pkill -f server; pkill -f testsender
 ```
 
 > **Note:** The timeout occurs because `testsender` only simulates telemetry - it doesn't process commands or send ACKs. A real vehicle would respond with `accepted`/`completed`/`failed` before the timeout.
@@ -638,7 +638,7 @@ pkill -f gateway; pkill -f testsender
 
 **Cleanup (run before/after tests):**
 ```bash
-pkill -f gateway 2>/dev/null || true
+pkill -f server 2>/dev/null || true
 pkill -f testclient 2>/dev/null || true
 lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 ```
@@ -653,10 +653,10 @@ lsof -ti:9000 | xargs kill -9 2>/dev/null || true
 
 **Test: Log Output Format**
 ```bash
-go run ./cmd/gateway
+go run ./cmd/tower-server
 
 # Expected structured logs:
-# time=2026-03-18T10:00:00.000-04:00 level=INFO msg="starting openc2-gateway" version=0.1.0 ws_port=9000 mcast_group=239.255.0.1 mcast_port=14550
+# time=2026-03-18T10:00:00.000-04:00 level=INFO msg="starting tower-server" version=0.1.0 ws_port=9000 mcast_group=239.255.0.1 mcast_port=14550
 # time=2026-03-18T10:00:00.001-04:00 level=INFO msg="joined multicast group" group=239.255.0.1 port=14550 iface=lo0
 # time=2026-03-18T10:00:00.002-04:00 level=INFO msg="websocket server listening" port=9000
 ```
@@ -681,8 +681,8 @@ go run ./cmd/testclient
 
 **Test: Health Check**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-test-01
@@ -699,7 +699,7 @@ curl http://localhost:9000/healthz
 # {"clients":1,"status":"ok"}
 
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender; pkill -f testclient
+pkill -f server; pkill -f testsender; pkill -f testclient
 ```
 
 **Test: HTTP Health Probe**
@@ -718,8 +718,8 @@ echo $?  # Should be 0 (success)
 
 **Test: Metrics Endpoint**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-test-01
@@ -728,40 +728,40 @@ go run ./cmd/testsender -vid ugv-test-01
 curl http://localhost:9000/metrics
 
 # Cleanup (any terminal):
-# pkill -f gateway; pkill -f testsender
+# pkill -f server; pkill -f testsender
 
 # Expected output (Prometheus format):
-# HELP openc2_uptime_seconds Gateway uptime in seconds
-# TYPE openc2_uptime_seconds gauge
-openc2_uptime_seconds 10.500
+# HELP tower_uptime_seconds Server uptime in seconds
+# TYPE tower_uptime_seconds gauge
+tower_uptime_seconds 10.500
 
-# HELP openc2_ws_connections Current WebSocket connections
-# TYPE openc2_ws_connections gauge
-openc2_ws_connections 0
+# HELP tower_ws_connections Current WebSocket connections
+# TYPE tower_ws_connections gauge
+tower_ws_connections 0
 
-# HELP openc2_vehicles Vehicles by status
-# TYPE openc2_vehicles gauge
-openc2_vehicles{status="online"} 3
-openc2_vehicles{status="standby"} 0
-openc2_vehicles{status="offline"} 0
+# HELP tower_vehicles Vehicles by status
+# TYPE tower_vehicles gauge
+tower_vehicles{status="online"} 3
+tower_vehicles{status="standby"} 0
+tower_vehicles{status="offline"} 0
 ```
 
 **Available Metrics:**
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `openc2_uptime_seconds` | gauge | Gateway uptime |
-| `openc2_ws_connections` | gauge | Current active connections |
-| `openc2_ws_connections_total` | counter | Total connections since startup |
-| `openc2_ws_handshakes_total` | counter | Successful handshakes |
-| `openc2_telemetry_received_total` | counter | Telemetry frames received |
-| `openc2_telemetry_broadcast_total` | counter | Telemetry frames broadcast |
-| `openc2_telemetry_dropped_total` | counter | Frames dropped (buffer full) |
-| `openc2_commands_received_total` | counter | Commands from UI |
-| `openc2_commands_sent_total` | counter | Commands sent to vehicles |
-| `openc2_commands_rejected_total` | counter | Commands rejected |
-| `openc2_commands_timedout_total` | counter | Commands timed out |
-| `openc2_vehicles{status="..."}` | gauge | Vehicles by status |
+| `tower_uptime_seconds` | gauge | Server uptime |
+| `tower_ws_connections` | gauge | Current active connections |
+| `tower_ws_connections_total` | counter | Total connections since startup |
+| `tower_ws_handshakes_total` | counter | Successful handshakes |
+| `tower_telemetry_received_total` | counter | Telemetry frames received |
+| `tower_telemetry_broadcast_total` | counter | Telemetry frames broadcast |
+| `tower_telemetry_dropped_total` | counter | Frames dropped (buffer full) |
+| `tower_commands_received_total` | counter | Commands from UI |
+| `tower_commands_sent_total` | counter | Commands sent to vehicles |
+| `tower_commands_rejected_total` | counter | Commands rejected |
+| `tower_commands_timedout_total` | counter | Commands timed out |
+| `tower_vehicles{status="..."}` | gauge | Vehicles by status |
 
 **Test: Metrics Under Load**
 ```bash
@@ -771,19 +771,19 @@ sleep 5
 
 # Check counters increased
 curl -s http://localhost:9000/metrics | grep telemetry
-# openc2_telemetry_received_total 500
-# openc2_telemetry_broadcast_total 500
+# tower_telemetry_received_total 500
+# tower_telemetry_broadcast_total 500
 
 # Cleanup:
 pkill -f testclient
-pkill -f gateway
+pkill -f server
 ```
 
 **Test: Prometheus Integration**
 ```yaml
 # prometheus.yml scrape config:
 scrape_configs:
-  - job_name: 'openc2-gateway'
+  - job_name: 'tower-server'
     static_configs:
       - targets: ['localhost:9000']
     metrics_path: '/metrics'
@@ -798,8 +798,8 @@ scrape_configs:
 
 **Test: Graceful Shutdown**
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Start testsender
 go run ./cmd/testsender -vid ugv-test-01
@@ -807,21 +807,21 @@ go run ./cmd/testsender -vid ugv-test-01
 # Terminal 3: Connect client (keep running)
 go run ./cmd/testclient
 
-# Terminal 1: Send SIGINT (Ctrl+C) to gateway
+# Terminal 1: Send SIGINT (Ctrl+C) to server
 # Expected logs:
 # time=... level=INFO msg="received shutdown signal" signal=interrupt
 # time=... level=INFO msg="shutting down..."
-# time=... level=INFO msg="gateway stopped"
+# time=... level=INFO msg="server stopped"
 
 # Client should receive close frame and disconnect cleanly
 # Cleanup (any terminal):
-pkill -f gateway; pkill -f testsender; pkill -f testclient
+pkill -f server; pkill -f testsender; pkill -f testclient
 ```
 
 **Test: SIGTERM (Docker/Kubernetes)**
 ```bash
-# Start gateway in background
-go run ./cmd/gateway &
+# Start server in background
+go run ./cmd/tower-server &
 PID=$!
 
 # Send SIGTERM
@@ -838,7 +838,7 @@ kill -TERM $PID
 
 **Test: Enable Debug Logging**
 ```go
-// In cmd/gateway/main.go, temporarily change:
+// In cmd/tower-server/main.go, temporarily change:
 slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
     Level: slog.LevelDebug,  // Change from LevelInfo
 }))
@@ -858,8 +858,8 @@ slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 Use these commands to clean up processes between tests:
 
 ```bash
-# Kill all gateway-related processes
-pkill -f gateway 2>/dev/null
+# Kill all server-related processes
+pkill -f server 2>/dev/null
 pkill -f testclient 2>/dev/null
 pkill -f testsender 2>/dev/null
 
@@ -871,7 +871,7 @@ lsof -i:9000
 # (should return empty)
 
 # Full cleanup one-liner
-pkill -f gateway; pkill -f testsender; pkill -f testclient; echo "✓ Cleaned"
+pkill -f server; pkill -f testsender; pkill -f testclient; echo "✓ Cleaned"
 ```
 
 ---
@@ -880,12 +880,12 @@ pkill -f gateway; pkill -f testsender; pkill -f testclient; echo "✓ Cleaned"
 
 | Env Variable | Default | Description |
 |--------------|---------|-------------|
-| `OPENC2_WS_PORT` | 9000 | WebSocket port |
-| `OPENC2_MCAST_SOURCES` | 239.255.0.1:14550 | Telemetry multicast sources |
-| `OPENC2_CMD_MCAST_GROUP` | 239.255.0.2 | Command multicast |
-| `OPENC2_CMD_MCAST_PORT` | 14551 | Command port |
-| `OPENC2_STANDBY_TIMEOUT` | 3s | Time before standby |
-| `OPENC2_OFFLINE_TIMEOUT` | 10s | Time before offline |
+| `TOWER_WS_PORT` | 9000 | WebSocket port |
+| `TOWER_MCAST_SOURCES` | 239.255.0.1:14550 | Telemetry multicast sources |
+| `TOWER_CMD_MCAST_GROUP` | 239.255.0.2 | Command multicast |
+| `TOWER_CMD_MCAST_PORT` | 14551 | Command port |
+| `TOWER_STANDBY_TIMEOUT` | 3s | Time before standby |
+| `TOWER_OFFLINE_TIMEOUT` | 10s | Time before offline |
 
 ### Multi-Source Telemetry
 
@@ -893,10 +893,10 @@ To receive telemetry from vehicles broadcasting on different multicast groups:
 
 ```bash
 # Multiple sources (comma-separated)
-OPENC2_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551" go run ./cmd/gateway
+TOWER_MCAST_SOURCES="239.255.0.1:14550,239.255.1.1:14551" go run ./cmd/tower-server
 
 # With labels for logging
-OPENC2_MCAST_SOURCES="239.255.0.1:14550:ugv-fleet,239.255.1.1:14551:usv-fleet" go run ./cmd/gateway
+TOWER_MCAST_SOURCES="239.255.0.1:14550:ugv-fleet,239.255.1.1:14551:usv-fleet" go run ./cmd/tower-server
 ```
 
 Format: `group:port` or `group:port:label`, comma-separated.

@@ -1,5 +1,5 @@
 // Package main provides a test sender that broadcasts mock vehicle telemetry
-// via UDP multicast for integration testing the gateway.
+// via UDP multicast for integration testing the server.
 //
 // Usage:
 //
@@ -22,7 +22,7 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/EthanMBoos/openc2-gateway/api/proto"
+	pb "github.com/EthanMBoos/tower-server/api/proto"
 	"google.golang.org/protobuf/proto"
 )
 

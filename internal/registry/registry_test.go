@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 )
 
 func TestNewVehicleStartsOnline(t *testing.T) {

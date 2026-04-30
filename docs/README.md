@@ -1,6 +1,6 @@
-# OpenC2 Gateway Documentation Index
+# Tower Server Documentation Index
 
-> Start here to quickly understand the openc2-gateway codebase.
+> Start here to quickly understand the tower-server codebase.
 
 ---
 
@@ -16,21 +16,21 @@
 | [PACKAGE_MAP.md](PACKAGE_MAP.md) | What each `internal/` package owns and does |
 | [EXTENSIBILITY.md](EXTENSIBILITY.md) | Extension codec/manifest spec, wire format |
 | [ADDING_A_VEHICLE.md](ADDING_A_VEHICLE.md) | Step-by-step guide for new vehicle/protocol integration |
-| [GATEWAY_IMPLEMENTATION.md](GATEWAY_IMPLEMENTATION.md) | Build phases, testing procedures |
+| [SERVER_IMPLEMENTATION.md](SERVER_IMPLEMENTATION.md) | Build phases, testing procedures |
 | [DEBUG_OBSERVABILITY_ROADMAP.md](DEBUG_OBSERVABILITY_ROADMAP.md) | Planned observability features (not yet implemented) |
 | [WHY_GO.md](WHY_GO.md) | Language choice justification |
 
 ---
 
-## What is openc2-gateway?
+## What is tower-server?
 
-**openc2-gateway** is a Go application that bridges robotic vehicles to the OpenC2 operator UI. It handles protocol translation, telemetry aggregation, and command routing.
+**tower-server** is a Go application that bridges robotic vehicles to the Tower operator UI. It handles protocol translation, telemetry aggregation, and command routing.
 
-> **Important Architecture Note**: The gateway is a **standalone process** — it has no dependency on the UI. Multiple UI clients can connect to a single gateway. Vehicles never communicate directly with the UI.
+> **Important Architecture Note**: The server is a **standalone process** — it has no dependency on the UI. Multiple UI clients can connect to a single server. Vehicles never communicate directly with the UI.
 
 ```
 ┌──────────────┐    UDP multicast    ┌──────────────┐    WebSocket     ┌──────────────┐
-│  50+ Robots  │ ◀─────────────────▶ │   Gateway    │ ◀───────────────▶│  N Operator  │
+│  50+ Robots  │ ◀─────────────────▶ │   Server    │ ◀───────────────▶│  N Operator  │
 │  10-100Hz    │   239.255.0.1:14550 │              │   localhost:9000 │     UIs      │
 │  protobuf    │                     │              │   JSON frames    │              │
 └──────────────┘                     └──────────────┘                  └──────────────┘
@@ -60,14 +60,14 @@ It provides four core capabilities:
 ## Project Structure (Key Paths)
 
 ```
-openc2-gateway/
+tower-server/
 ├── cmd/
-│   ├── gateway/        # Main entry point
+│   ├── server/        # Main entry point
 │   ├── testsender/     # Vehicle simulator
 │   └── testclient/     # WebSocket test client
 │
 ├── api/proto/
-│   └── openc2.proto    # Core protocol schema
+│   └── pidgin.proto    # Core protocol schema
 │
 ├── internal/
 │   ├── config/         # Environment variable parsing
@@ -90,13 +90,13 @@ openc2-gateway/
 ## Architecture Highlights
 
 ### Sequence-Based Deduplication
-Vehicles send monotonic sequence numbers (`seq`). The gateway tracks a high-water mark (HWM) per vehicle — any `seq ≤ HWM` is dropped as a duplicate or stale retransmit. This handles UDP packet reordering without relying on untrusted vehicle clocks.
+Vehicles send monotonic sequence numbers (`seq`). The server tracks a high-water mark (HWM) per vehicle — any `seq ≤ HWM` is dropped as a duplicate or stale retransmit. This handles UDP packet reordering without relying on untrusted vehicle clocks.
 
 ### Untrusted Vehicle Timestamps
-Vehicle clocks (`ts`) are treated as untrusted — no RTC, no NTP, GPS cold starts. The gateway adds its own authoritative timestamp (`gts`) when translating to JSON. Never filter telemetry by `ts`.
+Vehicle clocks (`ts`) are treated as untrusted — no RTC, no NTP, GPS cold starts. The server adds its own authoritative timestamp (`gts`) when translating to JSON. Never filter telemetry by `ts`.
 
 ### Extension Codec System
-Custom vehicle protocols implement the `Codec` interface. The gateway routes extension payloads to registered codecs by namespace, decodes to JSON, and forwards to the UI. Unknown extensions pass through with `_error` metadata for graceful degradation.
+Custom vehicle protocols implement the `Codec` interface. The server routes extension payloads to registered codecs by namespace, decodes to JSON, and forwards to the UI. Unknown extensions pass through with `_error` metadata for graceful degradation.
 
 ### Zero-Config Deployment
 `CGO_ENABLED=0 go build` produces a single static binary (~13MB) that runs on any target without dependencies. No container runtime, no package manager, no library conflicts.
@@ -106,8 +106,8 @@ Custom vehicle protocols implement the `Codec` interface. The gateway routes ext
 ## Getting Started
 
 ```bash
-# Run gateway + simulated vehicle
-go run ./cmd/gateway &
+# Run server + simulated vehicle
+go run ./cmd/tower-server &
 go run ./cmd/testsender -vid ugv-husky-01
 
 # Connect test client

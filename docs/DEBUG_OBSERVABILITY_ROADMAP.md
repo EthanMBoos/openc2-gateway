@@ -1,17 +1,17 @@
-# Gateway Debug & Observability — Roadmap
+# Server Debug & Observability — Roadmap
 
 > **STATUS: NOT IMPLEMENTED** — This document describes planned future capabilities. None of the phases below exist in the codebase yet. Do not reference these APIs or types in code — they will not compile.
 
-> **Purpose**: Defines the planned tools, techniques, and phased implementation for debugging protocol translation issues, network problems, and message flow visibility in the OpenC2 gateway.
+> **Purpose**: Defines the planned tools, techniques, and phased implementation for debugging protocol translation issues, network problems, and message flow visibility in the tower-server.
 
 ---
 
 ## Why This Matters
 
-The gateway performs real-time protocol translation between disparate systems:
+The server performs real-time protocol translation between disparate systems:
 
 ```
-Radio Node (protobuf/UDP multicast) ←→ Gateway ←→ UI Client (JSON/WebSocket)
+Radio Node (protobuf/UDP multicast) ←→ Server ←→ UI Client (JSON/WebSocket)
 ```
 
 Debugging challenges include:
@@ -29,13 +29,13 @@ Without proper observability, these issues are nearly impossible to diagnose in 
 ### Phase 0: UDP Drop Visibility (MVP Critical)
 **Effort**: 2 hours | **Priority**: Critical (do this first)
 
-At 100Hz telemetry × 10 vehicles = 1000 packets/sec. If the gateway's UDP receive buffer fills, packets are silently dropped by the kernel. The UI has **no visibility** into this — vehicles appear to stutter or freeze with no error.
+At 100Hz telemetry × 10 vehicles = 1000 packets/sec. If the server's UDP receive buffer fills, packets are silently dropped by the kernel. The UI has **no visibility** into this — vehicles appear to stutter or freeze with no error.
 
 #### The Problem
 
 ```
 Normal flow:
-  Vehicle ──UDP──▶ Kernel Buffer ──▶ Gateway goroutine ──▶ Process & broadcast
+  Vehicle ──UDP──▶ Kernel Buffer ──▶ Server goroutine ──▶ Process & broadcast
 
 Under load (buffer full):
   Vehicle ──UDP──▶ Kernel Buffer ──X  (kernel drops packet silently)
@@ -134,7 +134,7 @@ conn.SetReadBuffer(4 * 1024 * 1024)
 ### Phase 1: Structured Logging with Correlation IDs
 **Effort**: 1 day | **Priority**: Critical
 
-Every message flowing through the gateway gets a correlation ID for end-to-end tracing.
+Every message flowing through the server gets a correlation ID for end-to-end tracing.
 
 #### Requirements
 
@@ -147,9 +147,9 @@ Every message flowing through the gateway gets a correlation ID for end-to-end t
 | Field | Description |
 |-------|-------------|
 | `correlation_id` | Unique ID for this message flow |
-| `direction` | `vehicle→gateway`, `gateway→ui`, `ui→gateway`, `gateway→vehicle` |
+| `direction` | `vehicle→server`, `server→ui`, `ui→server`, `server→vehicle` |
 | `type` | Frame type (`telemetry`, `command`, `status`, etc.) |
-| `vid` | Vehicle ID or `_client`/`_gateway` |
+| `vid` | Vehicle ID or `_client`/`_server` |
 | `raw_bytes` | Size of raw payload |
 | `latency_us` | Processing time in microseconds |
 | `error` | Error message if translation failed |
@@ -157,8 +157,8 @@ Every message flowing through the gateway gets a correlation ID for end-to-end t
 #### Example Log Output
 
 ```json
-{"level":"info","timestampMs": "2026-03-17T14:32:01.234Z","msg":"frame.received","correlation_id":"01HQXYZ...","direction":"vehicle→gateway","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":1247}
-{"level":"info","timestampMs": "2026-03-17T14:32:01.235Z","msg":"frame.translated","correlation_id":"01HQXYZ...","direction":"gateway→ui","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":892,"latency_us":1102}
+{"level":"info","timestampMs": "2026-03-17T14:32:01.234Z","msg":"frame.received","correlation_id":"01HQXYZ...","direction":"vehicle→server","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":1247}
+{"level":"info","timestampMs": "2026-03-17T14:32:01.235Z","msg":"frame.translated","correlation_id":"01HQXYZ...","direction":"server→ui","type":"telemetry","vehicleId": "ugv-husky-07","raw_bytes":892,"latency_us":1102}
 ```
 
 #### Implementation
@@ -196,7 +196,7 @@ func (l *FrameLogger) LogTranslated(correlationID, direction, frameType, vid str
 ### Phase 2: HTTP Debug Endpoints
 **Effort**: 1 day | **Priority**: Critical
 
-REST endpoints for inspecting gateway state and recent message history.
+REST endpoints for inspecting server state and recent message history.
 
 #### Endpoints
 
@@ -284,10 +284,10 @@ func (s *DebugServer) RegisterRoutes(mux *http.ServeMux) {
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `OPENC2_DEBUG_FRAME_BUFFER` | 1000 | Max frames to retain |
-| `OPENC2_DEBUG_ERROR_BUFFER` | 500 | Max errors to retain |
-| `OPENC2_DEBUG_ENABLED` | true | Enable debug endpoints |
-| `OPENC2_DEBUG_PORT` | 9001 | Debug HTTP server port |
+| `TOWER_DEBUG_FRAME_BUFFER` | 1000 | Max frames to retain |
+| `TOWER_DEBUG_ERROR_BUFFER` | 500 | Max errors to retain |
+| `TOWER_DEBUG_ENABLED` | true | Enable debug endpoints |
+| `TOWER_DEBUG_PORT` | 9001 | Debug HTTP server port |
 
 ---
 
@@ -300,25 +300,25 @@ Expose quantitative metrics for monitoring and alerting.
 
 ```prometheus
 # Counters
-openc2_frames_total{direction="inbound|outbound", type="telemetry|command|status|...", protocol="udp|ws"}
-openc2_frame_bytes_total{direction="inbound|outbound", protocol="udp|ws"}
-openc2_udp_drops_total{reason="read_error|channel_full"}  # CRITICAL: silent packet loss
-openc2_validation_errors_total{error_code="INVALID_FRAME|UNKNOWN_TYPE|..."}
-openc2_translation_errors_total{direction="proto_to_json|json_to_proto"}
-openc2_commands_total{vid="...", command_type="goto|stop|..."}
-openc2_command_acks_total{vid="...", status="ok|failed|timeout"}
+tower_frames_total{direction="inbound|outbound", type="telemetry|command|status|...", protocol="udp|ws"}
+tower_frame_bytes_total{direction="inbound|outbound", protocol="udp|ws"}
+tower_udp_drops_total{reason="read_error|channel_full"}  # CRITICAL: silent packet loss
+tower_validation_errors_total{error_code="INVALID_FRAME|UNKNOWN_TYPE|..."}
+tower_translation_errors_total{direction="proto_to_json|json_to_proto"}
+tower_commands_total{vid="...", command_type="goto|stop|..."}
+tower_command_acks_total{vid="...", status="ok|failed|timeout"}
 
 # Gauges
-openc2_vehicles_online
-openc2_vehicles_standby
-openc2_vehicles_offline
-openc2_ws_clients_connected
-openc2_frame_buffer_size
+tower_vehicles_online
+tower_vehicles_standby
+tower_vehicles_offline
+tower_ws_clients_connected
+tower_frame_buffer_size
 
 # Histograms
-openc2_translation_latency_seconds{direction="proto_to_json|json_to_proto"}
-openc2_ws_broadcast_latency_seconds
-openc2_command_roundtrip_seconds{vid="..."}
+tower_translation_latency_seconds{direction="proto_to_json|json_to_proto"}
+tower_ws_broadcast_latency_seconds
+tower_command_roundtrip_seconds{vid="..."}
 ```
 
 #### Grafana Dashboard Panels
@@ -340,7 +340,7 @@ openc2_command_roundtrip_seconds{vid="..."}
 var (
     framesTotal = prometheus.NewCounterVec(
         prometheus.CounterOpts{
-            Name: "openc2_frames_total",
+            Name: "tower_frames_total",
             Help: "Total frames processed",
         },
         []string{"direction", "type", "protocol"},
@@ -348,7 +348,7 @@ var (
     
     translationLatency = prometheus.NewHistogramVec(
         prometheus.HistogramOpts{
-            Name:    "openc2_translation_latency_seconds",
+            Name:    "tower_translation_latency_seconds",
             Help:    "Time to translate frames",
             Buckets: prometheus.ExponentialBuckets(0.0001, 2, 10), // 100µs to 100ms
         },
@@ -357,7 +357,7 @@ var (
     
     vehiclesOnline = prometheus.NewGauge(
         prometheus.GaugeOpts{
-            Name: "openc2_vehicles_online",
+            Name: "tower_vehicles_online",
             Help: "Number of vehicles currently online",
         },
     )
@@ -395,7 +395,7 @@ Debug clients receive `debug_frame` messages:
 {
   "protocolVersion": 1,
   "type": "debug_frame",
-  "vehicleId": "_gateway",
+  "vehicleId": "_server",
   "timestampMs": 1710700800050,
   "data": {
     "correlation_id": "01HQXYZ...",
@@ -413,7 +413,7 @@ Debug clients receive `debug_frame` messages:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ Gateway Inspector                                    [⏸ Pause] [🗑 Clear]│
+│ Server Inspector                                    [⏸ Pause] [🗑 Clear]│
 ├───────┬────────────┬───────────┬───────────────┬────────┬───────────────┤
 │ DIR   │ TIME       │ TYPE      │ VEHICLE       │ SIZE   │ LATENCY       │
 ├───────┼────────────┼───────────┼───────────────┼────────┼───────────────┤
@@ -470,11 +470,11 @@ Capture sessions for offline analysis and bug reproduction.
 #### Recording Mode
 
 ```bash
-# Start gateway with recording enabled
-./gateway --record=/var/log/openc2/session-2026-03-17.jsonl
+# Start server with recording enabled
+./server --record=/var/log/pidgin/session-2026-03-17.jsonl
 
 # Or via environment
-OPENC2_RECORD_PATH=/var/log/openc2/session-$(date +%Y%m%d-%H%M%S).jsonl ./gateway
+TOWER_RECORD_PATH=/var/log/pidgin/session-$(date +%Y%m%d-%H%M%S).jsonl ./server
 ```
 
 #### Recording Format (JSONL)
@@ -492,16 +492,16 @@ Each line is a self-contained record:
 
 ```bash
 # Replay at original speed
-./gateway --replay=/var/log/openc2/session-2026-03-17.jsonl
+./server --replay=/var/log/pidgin/session-2026-03-17.jsonl
 
 # Replay at 2x speed
-./gateway --replay=/var/log/openc2/session-2026-03-17.jsonl --speed=2.0
+./server --replay=/var/log/pidgin/session-2026-03-17.jsonl --speed=2.0
 
 # Replay at half speed for detailed analysis
-./gateway --replay=/var/log/openc2/session-2026-03-17.jsonl --speed=0.5
+./server --replay=/var/log/pidgin/session-2026-03-17.jsonl --speed=0.5
 
 # Replay with modified translation logic (for testing fixes)
-./gateway --replay=/var/log/openc2/session-2026-03-17.jsonl --compare
+./server --replay=/var/log/pidgin/session-2026-03-17.jsonl --compare
 ```
 
 #### Replay Compare Mode
@@ -554,13 +554,13 @@ CLI tool for comparing protobuf input vs JSON output.
 
 ```bash
 # Compare single frame
-openc2-debug diff --proto frame.bin --json frame.json
+pidgin-debug diff --proto frame.bin --json frame.json
 
 # Compare from recording
-openc2-debug diff --record session.jsonl --correlation-id 01HQXYZ...
+pidgin-debug diff --record session.jsonl --correlation-id 01HQXYZ...
 
 # Batch compare all frames in recording
-openc2-debug diff --record session.jsonl --report diff-report.html
+pidgin-debug diff --record session.jsonl --report diff-report.html
 ```
 
 #### Output Example
@@ -599,18 +599,18 @@ Custom Wireshark dissector for the protobuf protocol.
 #### Lua Dissector
 
 ```lua
--- openc2_dissector.lua
-local openc2_proto = Proto("openc2", "OpenC2 Vehicle Protocol")
+-- tower_dissector.lua
+local tower_proto = Proto("pidgin", "Pidgin Vehicle Protocol")
 
-local f_vehicle_id = ProtoField.string("openc2.vehicle_id", "Vehicle ID")
-local f_msg_type = ProtoField.uint32("openc2.msg_type", "Message Type", base.DEC)
-local f_timestamp = ProtoField.uint64("openc2.timestamp", "Timestamp", base.DEC)
+local f_vehicle_id = ProtoField.string("pidgin.vehicle_id", "Vehicle ID")
+local f_msg_type = ProtoField.uint32("pidgin.msg_type", "Message Type", base.DEC)
+local f_timestamp = ProtoField.uint64("pidgin.timestamp", "Timestamp", base.DEC)
 
-openc2_proto.fields = { f_vehicle_id, f_msg_type, f_timestamp }
+tower_proto.fields = { f_vehicle_id, f_msg_type, f_timestamp }
 
-function openc2_proto.dissector(buffer, pinfo, tree)
-    pinfo.cols.protocol = "OpenC2"
-    local subtree = tree:add(openc2_proto, buffer(), "OpenC2 Protocol Data")
+function tower_proto.dissector(buffer, pinfo, tree)
+    pinfo.cols.protocol = "Pidgin"
+    local subtree = tree:add(tower_proto, buffer(), "Pidgin Protocol Data")
     
     -- Parse protobuf fields (simplified example)
     -- Full implementation would use proto definition
@@ -621,18 +621,18 @@ end
 
 -- Register for UDP multicast ports
 local udp_table = DissectorTable.get("udp.port")
-udp_table:add(14550, openc2_proto)
-udp_table:add(14551, openc2_proto)
+udp_table:add(14550, tower_proto)
+udp_table:add(14551, tower_proto)
 ```
 
 #### Installation
 
 ```bash
 # macOS
-cp openc2_dissector.lua ~/.local/lib/wireshark/plugins/
+cp tower_dissector.lua ~/.local/lib/wireshark/plugins/
 
 # Linux
-cp openc2_dissector.lua ~/.config/wireshark/plugins/
+cp tower_dissector.lua ~/.config/wireshark/plugins/
 
 # Then in Wireshark: Analyze → Reload Lua Plugins
 ```
@@ -645,24 +645,24 @@ All debug/observability settings:
 
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
-| `OPENC2_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
-| `OPENC2_LOG_FORMAT` | `json` | Log format: json, text |
-| `OPENC2_DEBUG_ENABLED` | `true` | Enable debug HTTP endpoints |
-| `OPENC2_DEBUG_PORT` | `9001` | Debug HTTP server port |
-| `OPENC2_DEBUG_FRAME_BUFFER` | `1000` | Frames to retain in memory |
-| `OPENC2_DEBUG_ERROR_BUFFER` | `500` | Errors to retain in memory |
-| `OPENC2_METRICS_ENABLED` | `true` | Enable Prometheus metrics |
-| `OPENC2_METRICS_PORT` | `9090` | Metrics HTTP server port |
-| `OPENC2_RECORD_PATH` | `""` | Path to record session (empty = disabled) |
-| `OPENC2_REPLAY_PATH` | `""` | Path to replay session (empty = disabled) |
-| `OPENC2_REPLAY_SPEED` | `1.0` | Replay speed multiplier |
+| `TOWER_LOG_LEVEL` | `info` | Log level: debug, info, warn, error |
+| `TOWER_LOG_FORMAT` | `json` | Log format: json, text |
+| `TOWER_DEBUG_ENABLED` | `true` | Enable debug HTTP endpoints |
+| `TOWER_DEBUG_PORT` | `9001` | Debug HTTP server port |
+| `TOWER_DEBUG_FRAME_BUFFER` | `1000` | Frames to retain in memory |
+| `TOWER_DEBUG_ERROR_BUFFER` | `500` | Errors to retain in memory |
+| `TOWER_METRICS_ENABLED` | `true` | Enable Prometheus metrics |
+| `TOWER_METRICS_PORT` | `9090` | Metrics HTTP server port |
+| `TOWER_RECORD_PATH` | `""` | Path to record session (empty = disabled) |
+| `TOWER_REPLAY_PATH` | `""` | Path to replay session (empty = disabled) |
+| `TOWER_REPLAY_SPEED` | `1.0` | Replay speed multiplier |
 
 ---
 
 ## Directory Structure
 
 ```
-openc2-gateway/
+tower-server/
 ├── internal/
 │   ├── observability/
 │   │   ├── logger.go         # Structured frame logging
@@ -678,13 +678,13 @@ openc2-gateway/
 │       ├── player.go         # Session replay
 │       └── diff.go           # Protocol diff logic
 ├── cmd/
-│   ├── gateway/
+│   ├── server/
 │   │   └── main.go
-│   └── openc2-debug/         # CLI debug tool
+│   └── pidgin-debug/         # CLI debug tool
 │       └── main.go
 └── tools/
     └── wireshark/
-        └── openc2_dissector.lua
+        └── tower_dissector.lua
 ```
 
 ---

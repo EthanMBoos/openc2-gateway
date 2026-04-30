@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Metrics holds runtime metrics for the gateway.
+// Metrics holds runtime metrics for the server.
 // All fields are safe for concurrent access.
 type Metrics struct {
 	// Connection metrics
@@ -155,58 +155,58 @@ func (m *Metrics) PrometheusHandler() http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 		// Uptime
-		fmt.Fprintf(w, "# HELP openc2_uptime_seconds Gateway uptime in seconds\n")
-		fmt.Fprintf(w, "# TYPE openc2_uptime_seconds gauge\n")
-		fmt.Fprintf(w, "openc2_uptime_seconds %.3f\n", s.UptimeSeconds)
+		fmt.Fprintf(w, "# HELP tower_uptime_seconds Server uptime in seconds\n")
+		fmt.Fprintf(w, "# TYPE tower_uptime_seconds gauge\n")
+		fmt.Fprintf(w, "tower_uptime_seconds %.3f\n", s.UptimeSeconds)
 
 		// WebSocket connections
-		fmt.Fprintf(w, "\n# HELP openc2_ws_connections Current WebSocket connections\n")
-		fmt.Fprintf(w, "# TYPE openc2_ws_connections gauge\n")
-		fmt.Fprintf(w, "openc2_ws_connections %d\n", s.WSConnections)
+		fmt.Fprintf(w, "\n# HELP tower_ws_connections Current WebSocket connections\n")
+		fmt.Fprintf(w, "# TYPE tower_ws_connections gauge\n")
+		fmt.Fprintf(w, "tower_ws_connections %d\n", s.WSConnections)
 
-		fmt.Fprintf(w, "\n# HELP openc2_ws_connections_total Total WebSocket connections since startup\n")
-		fmt.Fprintf(w, "# TYPE openc2_ws_connections_total counter\n")
-		fmt.Fprintf(w, "openc2_ws_connections_total %d\n", s.WSConnectionsTotal)
+		fmt.Fprintf(w, "\n# HELP tower_ws_connections_total Total WebSocket connections since startup\n")
+		fmt.Fprintf(w, "# TYPE tower_ws_connections_total counter\n")
+		fmt.Fprintf(w, "tower_ws_connections_total %d\n", s.WSConnectionsTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_ws_handshakes_total Total successful handshakes\n")
-		fmt.Fprintf(w, "# TYPE openc2_ws_handshakes_total counter\n")
-		fmt.Fprintf(w, "openc2_ws_handshakes_total %d\n", s.WSHandshakesTotal)
+		fmt.Fprintf(w, "\n# HELP tower_ws_handshakes_total Total successful handshakes\n")
+		fmt.Fprintf(w, "# TYPE tower_ws_handshakes_total counter\n")
+		fmt.Fprintf(w, "tower_ws_handshakes_total %d\n", s.WSHandshakesTotal)
 
 		// Telemetry
-		fmt.Fprintf(w, "\n# HELP openc2_telemetry_received_total Total telemetry frames received\n")
-		fmt.Fprintf(w, "# TYPE openc2_telemetry_received_total counter\n")
-		fmt.Fprintf(w, "openc2_telemetry_received_total %d\n", s.TelemetryReceivedTotal)
+		fmt.Fprintf(w, "\n# HELP tower_telemetry_received_total Total telemetry frames received\n")
+		fmt.Fprintf(w, "# TYPE tower_telemetry_received_total counter\n")
+		fmt.Fprintf(w, "tower_telemetry_received_total %d\n", s.TelemetryReceivedTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_telemetry_broadcast_total Total telemetry frames broadcast\n")
-		fmt.Fprintf(w, "# TYPE openc2_telemetry_broadcast_total counter\n")
-		fmt.Fprintf(w, "openc2_telemetry_broadcast_total %d\n", s.TelemetryBroadcastTotal)
+		fmt.Fprintf(w, "\n# HELP tower_telemetry_broadcast_total Total telemetry frames broadcast\n")
+		fmt.Fprintf(w, "# TYPE tower_telemetry_broadcast_total counter\n")
+		fmt.Fprintf(w, "tower_telemetry_broadcast_total %d\n", s.TelemetryBroadcastTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_telemetry_dropped_total Total telemetry frames dropped\n")
-		fmt.Fprintf(w, "# TYPE openc2_telemetry_dropped_total counter\n")
-		fmt.Fprintf(w, "openc2_telemetry_dropped_total %d\n", s.TelemetryDroppedTotal)
+		fmt.Fprintf(w, "\n# HELP tower_telemetry_dropped_total Total telemetry frames dropped\n")
+		fmt.Fprintf(w, "# TYPE tower_telemetry_dropped_total counter\n")
+		fmt.Fprintf(w, "tower_telemetry_dropped_total %d\n", s.TelemetryDroppedTotal)
 
 		// Commands
-		fmt.Fprintf(w, "\n# HELP openc2_commands_received_total Total commands received from UI\n")
-		fmt.Fprintf(w, "# TYPE openc2_commands_received_total counter\n")
-		fmt.Fprintf(w, "openc2_commands_received_total %d\n", s.CommandsReceivedTotal)
+		fmt.Fprintf(w, "\n# HELP tower_commands_received_total Total commands received from UI\n")
+		fmt.Fprintf(w, "# TYPE tower_commands_received_total counter\n")
+		fmt.Fprintf(w, "tower_commands_received_total %d\n", s.CommandsReceivedTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_commands_sent_total Total commands sent to vehicles\n")
-		fmt.Fprintf(w, "# TYPE openc2_commands_sent_total counter\n")
-		fmt.Fprintf(w, "openc2_commands_sent_total %d\n", s.CommandsSentTotal)
+		fmt.Fprintf(w, "\n# HELP tower_commands_sent_total Total commands sent to vehicles\n")
+		fmt.Fprintf(w, "# TYPE tower_commands_sent_total counter\n")
+		fmt.Fprintf(w, "tower_commands_sent_total %d\n", s.CommandsSentTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_commands_rejected_total Total commands rejected\n")
-		fmt.Fprintf(w, "# TYPE openc2_commands_rejected_total counter\n")
-		fmt.Fprintf(w, "openc2_commands_rejected_total %d\n", s.CommandsRejectedTotal)
+		fmt.Fprintf(w, "\n# HELP tower_commands_rejected_total Total commands rejected\n")
+		fmt.Fprintf(w, "# TYPE tower_commands_rejected_total counter\n")
+		fmt.Fprintf(w, "tower_commands_rejected_total %d\n", s.CommandsRejectedTotal)
 
-		fmt.Fprintf(w, "\n# HELP openc2_commands_timedout_total Total commands timed out\n")
-		fmt.Fprintf(w, "# TYPE openc2_commands_timedout_total counter\n")
-		fmt.Fprintf(w, "openc2_commands_timedout_total %d\n", s.CommandsTimedOutTotal)
+		fmt.Fprintf(w, "\n# HELP tower_commands_timedout_total Total commands timed out\n")
+		fmt.Fprintf(w, "# TYPE tower_commands_timedout_total counter\n")
+		fmt.Fprintf(w, "tower_commands_timedout_total %d\n", s.CommandsTimedOutTotal)
 
 		// Vehicles
-		fmt.Fprintf(w, "\n# HELP openc2_vehicles Vehicles by status\n")
-		fmt.Fprintf(w, "# TYPE openc2_vehicles gauge\n")
-		fmt.Fprintf(w, "openc2_vehicles{status=\"online\"} %d\n", s.VehiclesOnline)
-		fmt.Fprintf(w, "openc2_vehicles{status=\"standby\"} %d\n", s.VehiclesStandby)
-		fmt.Fprintf(w, "openc2_vehicles{status=\"offline\"} %d\n", s.VehiclesOffline)
+		fmt.Fprintf(w, "\n# HELP tower_vehicles Vehicles by status\n")
+		fmt.Fprintf(w, "# TYPE tower_vehicles gauge\n")
+		fmt.Fprintf(w, "tower_vehicles{status=\"online\"} %d\n", s.VehiclesOnline)
+		fmt.Fprintf(w, "tower_vehicles{status=\"standby\"} %d\n", s.VehiclesStandby)
+		fmt.Fprintf(w, "tower_vehicles{status=\"offline\"} %d\n", s.VehiclesOffline)
 	}
 }

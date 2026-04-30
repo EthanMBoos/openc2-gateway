@@ -127,8 +127,8 @@ func TestParseMulticastSourcesLabels(t *testing.T) {
 }
 
 func TestLoadMulticastSources(t *testing.T) {
-	os.Setenv("OPENC2_MCAST_SOURCES", "239.255.0.1:14550:test")
-	defer os.Unsetenv("OPENC2_MCAST_SOURCES")
+	os.Setenv("TOWER_MCAST_SOURCES", "239.255.0.1:14550:test")
+	defer os.Unsetenv("TOWER_MCAST_SOURCES")
 
 	cfg, err := Load()
 	if err != nil {
@@ -144,7 +144,7 @@ func TestLoadMulticastSources(t *testing.T) {
 }
 
 func TestLoadFallbackToSingleSource(t *testing.T) {
-	os.Unsetenv("OPENC2_MCAST_SOURCES")
+	os.Unsetenv("TOWER_MCAST_SOURCES")
 
 	cfg, err := Load()
 	if err != nil {

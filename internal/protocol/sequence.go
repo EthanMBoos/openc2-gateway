@@ -90,7 +90,7 @@ func (st *SequenceTracker) HighWaterMark(vehicleID string) (uint32, bool) {
 // Reset clears tracking state for a vehicle, allowing any sequence number to be accepted.
 //
 // IMPORTANT: The vehicle registry MUST call this when a vehicle transitions from
-// offline → online (after OPENC2_OFFLINE_TIMEOUT expires and new telemetry arrives).
+// offline → online (after TOWER_OFFLINE_TIMEOUT expires and new telemetry arrives).
 // This handles the reboot case: if a vehicle restarts, its seq resets to 0, which
 // would otherwise be rejected as stale (seq < highWaterMark). The status state machine detects
 // the offline→online transition and calls Reset() to re-sync.

@@ -1,4 +1,4 @@
-// Package websocket provides WebSocket client handling for the gateway.
+// Package websocket provides WebSocket client handling for the server.
 package websocket
 
 import (
@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 	"github.com/gorilla/websocket"
 )
 

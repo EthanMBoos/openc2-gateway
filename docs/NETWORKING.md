@@ -1,6 +1,6 @@
-# Networking for OpenC2
+# Networking for Tower
 
-> A practical guide to understanding how OpenC2 communicates with vehicles.  
+> A practical guide to understanding how Tower communicates with vehicles.  
 > No networking background required.
 
 ---
@@ -13,7 +13,7 @@
 │                                                                         │
 │   ┌─────────────────┐         ┌─────────────────┐         ┌──────────┐  │
 │   │  Ground Station │         │   Robot (UGV)   │         │  Robot   │  │
-│   │  (Gateway + UI) │         │                 │         │  (USV)   │  │
+│   │  (Server + UI) │         │                 │         │  (USV)   │  │
 │   │                 │         │                 │         │          │  │
 │   │  eth0:          │         │  eth0:          │         │  wlan0:  │  │
 │   │  192.168.1.10   │         │  192.168.1.50   │         │  192.168.│  │
@@ -25,7 +25,7 @@
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key insight:** Every device has a regular IP address (`192.168.1.x`), but OpenC2 uses **multicast** — a special addressing scheme where messages go to a *group*, not a specific device.
+**Key insight:** Every device has a regular IP address (`192.168.1.x`), but Tower uses **multicast** — a special addressing scheme where messages go to a *group*, not a specific device.
 
 ---
 
@@ -46,12 +46,12 @@ With multicast:
 
 ---
 
-## How OpenC2 Uses Multicast
+## How Tower Uses Multicast
 
 ```
-                    TELEMETRY FLOW (Vehicle → Gateway)
+                    TELEMETRY FLOW (Vehicle → Server)
                     
-    UGV                                              Gateway
+    UGV                                              Server
     ┌─────────┐                                     ┌─────────┐
     │ Sends   │──── UDP to 239.255.0.1:14550 ──────▶│ Joined  │
     │ to group│                                     │ group   │
@@ -64,9 +64,9 @@ With multicast:
     └─────────┘
 
 
-                    COMMAND FLOW (Gateway → Vehicles)
+                    COMMAND FLOW (Server → Vehicles)
                     
-    Gateway                                        UGV
+    Server                                        UGV
     ┌─────────┐                                   ┌─────────┐
     │ Sends   │──── UDP to 239.255.0.2:14551 ────▶│ Joined  │
     │ to group│                                   │ group   │
@@ -81,8 +81,8 @@ With multicast:
 
 | Direction | Group Address | Port | Who Joins | Who Sends |
 |-----------|---------------|------|-----------|-----------|
-| Vehicle → Gateway | `239.255.0.1` | `14550` | Gateway | Vehicles |
-| Gateway → Vehicles | `239.255.0.2` | `14551` | Vehicles | Gateway |
+| Vehicle → Server | `239.255.0.1` | `14550` | Server | Vehicles |
+| Server → Vehicles | `239.255.0.2` | `14551` | Vehicles | Server |
 
 ---
 
@@ -114,14 +114,14 @@ The range `224.0.0.0` to `239.255.255.255` is reserved at the protocol level (IP
 ### Ground Station Setup
 
 ```bash
-# Start the gateway (joins multicast group automatically)
-go run ./cmd/gateway
+# Start the server (joins multicast group automatically)
+go run ./cmd/tower-server
 
 # Or with explicit sources
-OPENC2_MCAST_SOURCES="239.255.0.1:14550" ./gateway
+TOWER_MCAST_SOURCES="239.255.0.1:14550" ./server
 ```
 
-The gateway calls `IP_ADD_MEMBERSHIP` under the hood — this tells your NIC "deliver packets for `239.255.0.1` to me."
+The server calls `IP_ADD_MEMBERSHIP` under the hood — this tells your NIC "deliver packets for `239.255.0.1` to me."
 
 ### Robot Setup (Firmware Side)
 
@@ -134,7 +134,7 @@ import struct
 
 # --- SENDING TELEMETRY ---
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-# Send to multicast group (NOT the gateway's IP!)
+# Send to multicast group (NOT the server's IP!)
 sock.sendto(telemetry_bytes, ("239.255.0.1", 14550))
 
 # --- RECEIVING COMMANDS ---
@@ -146,18 +146,18 @@ cmd_sock.bind(("", 14551))
 mreq = struct.pack("4sl", socket.inet_aton("239.255.0.2"), socket.INADDR_ANY)
 cmd_sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
-# Now cmd_sock.recv() will get commands from gateway
+# Now cmd_sock.recv() will get commands from server
 ```
 
 ---
 
 ## Testing Locally (No Hardware)
 
-OpenC2 includes a test sender that simulates vehicles on your development machine:
+Tower includes a test sender that simulates vehicles on your development machine:
 
 ```bash
-# Terminal 1: Start gateway
-go run ./cmd/gateway
+# Terminal 1: Start server
+go run ./cmd/tower-server
 
 # Terminal 2: Simulate a vehicle
 go run ./cmd/testsender -vid ugv-husky-01
@@ -175,11 +175,11 @@ This works because multicast loopback is enabled — your machine receives its o
 If different vehicle types use different groups (e.g., UGVs on `239.255.0.1`, USVs on `239.255.1.1`):
 
 ```bash
-# Gateway joins both groups
-OPENC2_MCAST_SOURCES="239.255.0.1:14550:ugv,239.255.1.1:14550:usv" ./gateway
+# Server joins both groups
+TOWER_MCAST_SOURCES="239.255.0.1:14550:ugv,239.255.1.1:14550:usv" ./server
 ```
 
-Each robot broadcasts to its designated group. The gateway listens to all.
+Each robot broadcasts to its designated group. The server listens to all.
 
 ---
 
@@ -187,8 +187,8 @@ Each robot broadcasts to its designated group. The gateway listens to all.
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| Gateway doesn't see packets | Firewall blocking UDP | `sudo ufw allow 14550/udp` |
-| Works on laptop, fails on Pi | Multiple NICs, joined wrong one | The gateway joins on all interfaces by default |
+| Server doesn't see packets | Firewall blocking UDP | `sudo ufw allow 14550/udp` |
+| Works on laptop, fails on Pi | Multiple NICs, joined wrong one | The server joins on all interfaces by default |
 | WiFi doesn't work | AP blocks multicast | Enable multicast forwarding on access point |
 | Works locally, not across machines | Different subnets | Move to same subnet, or configure multicast routing |
 | Intermittent packet loss | WiFi multicast rate limiting | Some APs throttle multicast; use wired or tune AP settings |
@@ -210,14 +210,14 @@ sudo tcpdump -i any 'ip multicast'
 ### Option 1: Unicast (Point-to-Point)
 
 ```
-    Vehicle A ────────────▶ Gateway
-    Vehicle B ────────────▶ Gateway  
-    Vehicle C ────────────▶ Gateway
+    Vehicle A ────────────▶ Server
+    Vehicle B ────────────▶ Server  
+    Vehicle C ────────────▶ Server
 ```
 
 | Pros | Cons |
 |------|------|
-| Simple to understand | Gateway IP must be known/configured on each vehicle |
+| Simple to understand | Server IP must be known/configured on each vehicle |
 | Works across subnets | Adding vehicles requires config on vehicle side |
 | Firewall-friendly | Commands must be sent to each vehicle individually |
 
@@ -239,13 +239,13 @@ sudo tcpdump -i any 'ip multicast'
 
 **When to use:** Rarely. Multicast is almost always better.
 
-### Option 3: Multicast (OpenC2's Choice)
+### Option 3: Multicast (Tower's Choice)
 
 ```
     Vehicle A ────┐
     Vehicle B ────┼───▶ 239.255.0.1 (only subscribers receive)
     Vehicle C ────┘
-              Gateway subscribes
+              Server subscribes
 ```
 
 | Pros | Cons |
@@ -255,12 +255,12 @@ sudo tcpdump -i any 'ip multicast'
 | Scales well | Slightly harder to debug |
 | Commands reach all vehicles with one send | |
 
-**When to use:** Field deployments on a local network (exactly what OpenC2 targets).
+**When to use:** Field deployments on a local network (exactly what Tower targets).
 
 ### Option 4: Message Broker (MQTT, ROS2 DDS)
 
 ```
-    Vehicle A ────┐            ┌───▶ Gateway
+    Vehicle A ────┐            ┌───▶ Server
     Vehicle B ────┼───▶ Broker ┼───▶ Logger
     Vehicle C ────┘            └───▶ Cloud
 ```
@@ -278,7 +278,7 @@ sudo tcpdump -i any 'ip multicast'
 
 ## Summary
 
-| Concept | OpenC2 Value |
+| Concept | Tower Value |
 |---------|--------------|
 | Telemetry group | `239.255.0.1:14550` |
 | Command group | `239.255.0.2:14551` |
@@ -286,4 +286,4 @@ sudo tcpdump -i any 'ip multicast'
 | Transport | UDP (fast, tolerates loss) |
 | Requirement | All devices on same Layer 2 network |
 
-**The key mental model:** Vehicles don't send to the gateway's IP. They send to a *group*, and the gateway subscribes to that group. This is why you don't need to configure gateway addresses on robots — they just broadcast to the well-known group.
+**The key mental model:** Vehicles don't send to the server's IP. They send to a *group*, and the server subscribes to that group. This is why you don't need to configure server addresses on robots — they just broadcast to the well-known group.

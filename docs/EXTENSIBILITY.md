@@ -1,4 +1,4 @@
-# OpenC2 Extensibility
+# Tower Extensibility
 
 > **Purpose**: Extension codec/manifest spec, wire format, and implementation details.  
 > For system topology, platform philosophy, and repository strategy see [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -9,10 +9,10 @@
 
 ### Core Proto Additions
 
-Add extension support to `openc2.proto` without breaking existing messages:
+Add extension support to `pidgin.proto` without breaking existing messages:
 
 ```protobuf
-// api/proto/openc2.proto
+// api/proto/pidgin.proto
 
 message VehicleTelemetry {
   // ... existing fields 1-10 ...
@@ -27,7 +27,7 @@ message VehicleTelemetry {
 }
 
 // ExtensionData wraps extension payloads with version metadata.
-// This allows schema evolution per-extension without breaking the gateway.
+// This allows schema evolution per-extension without breaking the server.
 message ExtensionData {
   // Schema version for this extension's payload format.
   // Codecs use this to select the correct decoder.
@@ -53,7 +53,7 @@ message ExtensionCommand {
 ```
 
 **Key design principles**:
-- **Gateway core doesn't parse extension contents** — it routes versioned bytes to codecs. This decouples gateway releases from extension releases.
+- **Server core doesn't parse extension contents** — it routes versioned bytes to codecs. This decouples server releases from extension releases.
 - **Per-vehicle capabilities** — `supported_extensions` lets the UI filter actions based on what each vehicle actually supports.
 - **Independent versioning** — each extension evolves its schema independently; codecs handle version negotiation.
 
@@ -63,35 +63,35 @@ Codecs self-register at startup via Go's `init()` mechanism. Import the package 
 
 ```go
 import (
-    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
+    _ "github.com/EthanMBoos/tower-server/internal/extensions/husky"
 )
 ```
 
-The underscore import triggers `init()`, which calls `extensions.Register()`. The gateway automatically routes telemetry and commands to the registered codec based on namespace. See [Gateway Implementation](#gateway-implementation) below for the full `Codec` interface.
+The underscore import triggers `init()`, which calls `extensions.Register()`. The server automatically routes telemetry and commands to the registered codec based on namespace. See [Server Implementation](#server-implementation) below for the full `Codec` interface.
 
 ### JSON Wire Format
 
-Gateway translates extensions to JSON for UI consumption.
+Server translates extensions to JSON for UI consumption.
 
 **Welcome Snapshot:** The `welcome` message includes:
-- **`availableExtensions`** — list of extension namespaces the gateway can decode (collected from registered codecs at startup)
+- **`availableExtensions`** — list of extension namespaces the server can decode (collected from registered codecs at startup)
 - **`manifests`** — full manifest for each extension (commands, labels, UI hints)
 
-This makes the gateway the **single source of truth** for what extensions exist. Vehicles then advertise which of these extensions they support via `supportedExtensions` in telemetry.
+This makes the server the **single source of truth** for what extensions exist. Vehicles then advertise which of these extensions they support via `supportedExtensions` in telemetry.
 
 **Extension governance flow:**
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         AUTHORITY CHAIN                             │
 ├─────────────────────────────────────────────────────────────────────┤
-│  1. Gateway compiles with codec imports → availableExtensions       │
-│  2. Gateway sends availableExtensions + manifests in welcome        │
+│  1. Server compiles with codec imports → availableExtensions       │
+│  2. Server sends availableExtensions + manifests in welcome        │
 │  3. Vehicles advertise supportedExtensions in telemetry             │
-│  4. UI filters buttons by: gateway.available ∩ vehicle.supported    │
+│  4. UI filters buttons by: server.available ∩ vehicle.supported    │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**No config file needed.** The gateway's registered codecs ARE the config. To disable an extension, remove its import from `cmd/gateway/main.go`.
+**No config file needed.** The server's registered codecs ARE the config. To disable an extension, remove its import from `cmd/tower-server/main.go`.
 
 **Telemetry with extensions:**
 ```json
@@ -100,7 +100,7 @@ This makes the gateway the **single source of truth** for what extensions exist.
   "type": "telemetry",
   "vehicleId": "husky-01",
   "timestampMs": 1710700800000,
-  "gatewayTimestampMs": 1710700800001,
+  "serverTimestampMs": 1710700800001,
   "data": {
     "location": {"lat": 37.7749, "lng": -122.4194, "alt_msl": 10.0},
     "speed": 0.5,
@@ -144,9 +144,9 @@ This makes the gateway the **single source of truth** for what extensions exist.
 
 **Extension command ACK:**
 
-Extension commands use the same `command_ack` structure as core commands. The gateway validates extension actions against the vehicle's advertised capabilities before broadcasting:
+Extension commands use the same `command_ack` structure as core commands. The server validates extension actions against the vehicle's advertised capabilities before broadcasting:
 
-> **Naming convention:** Protobuf uses `snake_case` (e.g., `supported_actions`). JSON uses `camelCase` (e.g., `supportedActions`). The gateway translates automatically.
+> **Naming convention:** Protobuf uses `snake_case` (e.g., `supported_actions`). JSON uses `camelCase` (e.g., `supportedActions`). The server translates automatically.
 
 ```json
 {
@@ -154,7 +154,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
   "type": "command_ack",
   "vehicleId": "husky-01",
   "timestampMs": 1710700800005,
-  "gatewayTimestampMs": 1710700800006,
+  "serverTimestampMs": 1710700800006,
   "data": {
     "commandId": "cmd-abc123",
     "status": "accepted",
@@ -163,7 +163,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 }
 ```
 
-**Extension capability validation:** The gateway rejects extension commands that the vehicle doesn't support:
+**Extension capability validation:** The server rejects extension commands that the vehicle doesn't support:
 
 ```json
 {
@@ -171,7 +171,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
   "type": "command_ack",
   "vehicleId": "husky-01",
   "timestampMs": 1710700800005,
-  "gatewayTimestampMs": 1710700800006,
+  "serverTimestampMs": 1710700800006,
   "data": {
     "commandId": "cmd-abc123",
     "status": "rejected",
@@ -184,7 +184,7 @@ Extension commands use the same `command_ack` structure as core commands. The ga
 |------------|-------------------------------|
 | `accepted` | Command validated; broadcast to vehicle |
 | `rejected` | Extension namespace unknown OR action not in `supportedActions` |
-| `timeout` | No vehicle response within `OPENC2_CMD_TIMEOUT` (default 5s) |
+| `timeout` | No vehicle response within `TOWER_CMD_TIMEOUT` (default 5s) |
 | `completed` | Vehicle confirms action executed |
 | `failed` | Vehicle reports execution error |
 
@@ -206,7 +206,7 @@ Each extension ships a **manifest file** declaring its namespace and commands. F
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ Gateway Server (Go)                                             │
+│ Server Server (Go)                                             │
 │                                                                 │
 │  manifest.yaml ──load──▶ memory ──serialize──▶ welcome JSON     │
 │  (on disk)               (startup)              (to UI)         │
@@ -223,11 +223,11 @@ Each extension ships a **manifest file** declaring its namespace and commands. F
 
 **Why this architecture:**
 - **YAML is the source of truth** — extension authors edit manifest files without touching Go code
-- **Welcome message is the transport** — UI clients don't have filesystem access to the gateway
+- **Welcome message is the transport** — UI clients don't have filesystem access to the server
 - **One-time transfer** — manifests are static, sent only on connect (not in heartbeats)
-- **Fail-fast validation** — gateway validates YAML at startup, not at runtime
+- **Fail-fast validation** — server validates YAML at startup, not at runtime
 
-> **Future Work:** Support manifest hot-reload where users edit YAML locally, upload to the gateway via WebSocket command, and see UI changes without restarting. This enables field-editable extensions without SSH access to the gateway host.
+> **Future Work:** Support manifest hot-reload where users edit YAML locally, upload to the server via WebSocket command, and see UI changes without restarting. This enables field-editable extensions without SSH access to the server host.
 
 > **Phase 2:** Dynamic telemetry panels with gauges, badges, and color scales. For MVP, hard-code extension-specific panels in the UI.
 
@@ -268,9 +268,9 @@ Each extension defines its own proto. For MVP, these live in-tree under `interna
 // internal/extensions/husky/husky.proto
 
 syntax = "proto3";
-package openc2.extensions.husky;
+package pidgin.extensions.husky;
 
-option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky";
+option go_package = "github.com/EthanMBoos/tower-server/internal/extensions/husky";
 
 // Telemetry extension (serialized into VehicleTelemetry.extensions["husky"])
 message HuskyTelemetry {
@@ -308,7 +308,7 @@ message ResetFaultsCommand {
 
 ---
 
-## Gateway Implementation
+## Server Implementation
 
 ### Extension Codec Interface
 
@@ -343,7 +343,7 @@ type Codec interface {
 }
 ```
 
-**Version Compatibility Contract:** Codecs MUST decode all schema versions they have ever shipped (backward compatibility). When encoding commands, use the latest version. If a vehicle sends a version the codec doesn't recognize, gateway passes through with `_error` metadata — the UI shows the debug panel, operations continue.
+**Version Compatibility Contract:** Codecs MUST decode all schema versions they have ever shipped (backward compatibility). When encoding commands, use the latest version. If a vehicle sends a version the codec doesn't recognize, server passes through with `_error` metadata — the UI shows the debug panel, operations continue.
 
 ### Extension Registry
 
@@ -432,8 +432,8 @@ package husky
 import (
     "fmt"
     
-    pb "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
-    "github.com/EthanMBoos/openc2-gateway/internal/extensions"
+    pb "github.com/EthanMBoos/tower-server/internal/extensions/husky"
+    "github.com/EthanMBoos/tower-server/internal/extensions"
     "google.golang.org/protobuf/proto"
 )
 
@@ -520,23 +520,23 @@ func (c *Codec) Manifest() *extensions.Manifest {
 }
 ```
 
-### Gateway Main: Import Extensions (MVP)
+### Server Main: Import Extensions (MVP)
 
 For MVP, extensions live **in-tree** under `internal/extensions/`. No separate repo yet.
 
 ```go
-// cmd/gateway/main.go
+// cmd/tower-server/main.go
 
 package main
 
 import (
     // Core packages
-    "github.com/EthanMBoos/openc2-gateway/internal/config"
-    "github.com/EthanMBoos/openc2-gateway/internal/websocket"
+    "github.com/EthanMBoos/tower-server/internal/config"
+    "github.com/EthanMBoos/tower-server/internal/websocket"
     // ...
     
     // Extension codecs - in-tree for MVP
-    _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
+    _ "github.com/EthanMBoos/tower-server/internal/extensions/husky"
 )
 
 func main() {
@@ -734,18 +734,18 @@ function HuskyPanel() {
 
 ## Extension Decoding
 
-**Gateway always decodes extensions to JSON.** The WebSocket carries clean, human-readable JSON — no binary blobs, no base64.
+**Server always decodes extensions to JSON.** The WebSocket carries clean, human-readable JSON — no binary blobs, no base64.
 
 | Benefit | Why It Matters |
 |---------|----------------|
 | UI receives ready-to-use JSON | No protobuf runtime in the browser, no bundle bloat |
 | Single point of debugging | WebSocket traffic is readable; errors logged in one place |
 | Consistent behavior | All clients see identical decoded data |
-| Type-safe decoding | Gateway codec catches malformed extension data with clear errors |
+| Type-safe decoding | Server codec catches malformed extension data with clear errors |
 
 ### Unknown Extensions (Fail-Fast)
 
-For MVP, the gateway **rejects unknown extensions** with a clear error:
+For MVP, the server **rejects unknown extensions** with a clear error:
 
 ```json
 {
@@ -763,10 +763,10 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 **Development workflow:**
 1. Team defines their `maritime.proto` and implements a codec
 2. Team adds codec to `internal/extensions/maritime/` (in-tree for MVP)
-3. Team runs local gateway with their codec
+3. Team runs local server with their codec
 4. Once validated, PR to main branch
 
-**Key point:** All roads lead to `openc2.proto`. Extension protos define what goes *inside* the `extensions` bytes field — they're payloads nested in the OpenC2 envelope, not alternatives to it.
+**Key point:** All roads lead to `pidgin.proto`. Extension protos define what goes *inside* the `extensions` bytes field — they're payloads nested in the Pidgin envelope, not alternatives to it.
 
 ---
 
@@ -774,7 +774,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 
 ### MVP (This Release)
 
-| Phase | Gateway | UI | Effort |
+| Phase | Server | UI | Effort |
 |-------|---------|-----|--------|
 | 1. Extension envelope | `extensions` field already in proto ✓ | Add `extensions` to `VehicleInstance` | 0.5 day |
 | 2. Extension registry | Create `internal/extensions/` with codec interface | — | 1 day |
@@ -791,7 +791,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 |---------|-------------|
 | Dynamic manifest loading | Collect manifests from registered codecs at runtime |
 | Manifest-driven UI panels | Render gauges/badges from manifest schema |
-| External extensions repo | Split to `openc2-extensions/` with CODEOWNERS |
+| External extensions repo | Split to `pidgin-extensions/` with CODEOWNERS |
 | Manifest validation CI | JSON Schema validation in CI |
 
 ---
@@ -801,7 +801,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
 - **Hot reload**: Watch manifest files for changes, push updates via WebSocket
 - **Extension marketplace**: Browse/enable extensions from UI
 - **Buf schema registry**: Migrate to Buf.build for enterprise-grade schema management
-- **Plugin architecture**: Load extension codecs at runtime without gateway recompilation
+- **Plugin architecture**: Load extension codecs at runtime without server recompilation
 
 ---
 
@@ -841,7 +841,7 @@ For MVP, the gateway **rejects unknown extensions** with a clear error:
        done
    ```
 
-3. **Gateway validation** at startup:
+3. **Server validation** at startup:
    - Parse and validate all manifests against schema
    - Log warnings for invalid manifests but don't crash
    - `/manifests` endpoint only serves validated manifests
@@ -892,7 +892,7 @@ The following should be **core protocol features** with well-defined semantics.
 
 ### 1. Vehicle Capabilities (Priority: HIGH) — ✅ IMPLEMENTED
 
-> **STATUS**: Implemented in `openc2.proto`, gateway, and testsender as of March 2026.
+> **STATUS**: Implemented in `pidgin.proto`, server, and testsender as of March 2026.
 
 **The Problem (Solved):**
 
@@ -907,12 +907,12 @@ Previously, all vehicles implicitly accepted all core commands (`goto`, `stop`, 
 
 **Solution:**
 
-Capabilities are now advertised via `Heartbeat` messages. See `api/proto/openc2.proto` for the full schema:
+Capabilities are now advertised via `Heartbeat` messages. See `api/proto/pidgin.proto` for the full schema:
 
 - `VehicleCapabilities` — lists supported commands, extensions, mission support, and sensors
 - `ExtensionCapability` — granular extension support with namespace, version, and specific action list
 - `SensorCapability` — describes attached sensors with stream URLs and mounting info
-- Gateway validates commands against capabilities (fail-fast with `COMMAND_NOT_SUPPORTED` error)
+- Server validates commands against capabilities (fail-fast with `COMMAND_NOT_SUPPORTED` error)
 - Capabilities included in `welcome` message fleet snapshot
 
 **Extension Capability Structure:**
@@ -975,7 +975,7 @@ function CommandPanel({ vehicle }: Props) {
 }
 ```
 
-**Gateway Changes:**
+**Server Changes:**
 
 1. Parse `capabilities` from Heartbeat
 2. Store in registry alongside vehicle state
@@ -986,7 +986,7 @@ function CommandPanel({ vehicle }: Props) {
 
 ### 2. Sensor Registry (Priority: MEDIUM) — ✅ IMPLEMENTED
 
-> **STATUS**: Implemented as part of `VehicleCapabilities.sensors` in `openc2.proto` as of March 2026.
+> **STATUS**: Implemented as part of `VehicleCapabilities.sensors` in `pidgin.proto` as of March 2026.
 
 **The Problem (Solved):**
 
@@ -999,7 +999,7 @@ Cameras, LiDAR, radar, and thermal sensors appear across nearly every robotics p
 
 **Solution:**
 
-Sensors are now a first-class field in `VehicleCapabilities`. See `api/proto/openc2.proto` for the full schema:
+Sensors are now a first-class field in `VehicleCapabilities`. See `api/proto/pidgin.proto` for the full schema:
 
 ```protobuf
 message SensorCapability {
@@ -1180,7 +1180,7 @@ message Location {
 
 **Why Low Priority:**
 
-Most OpenC2 deployments are outdoor with GPS. The frame issue primarily affects indoor/industrial robotics, which often have existing local tooling. Implement when a concrete use case demands it.
+Most Tower deployments are outdoor with GPS. The frame issue primarily affects indoor/industrial robotics, which often have existing local tooling. Implement when a concrete use case demands it.
 
 ---
 
@@ -1188,7 +1188,7 @@ Most OpenC2 deployments are outdoor with GPS. The frame issue primarily affects 
 
 | Feature | Priority | Effort | Status |
 |---------|----------|--------|--------|
-| Vehicle Capabilities | **HIGH** | 3-4 days | ✅ **DONE** — Proto, gateway, and testsender implemented |
+| Vehicle Capabilities | **HIGH** | 3-4 days | ✅ **DONE** — Proto, server, and testsender implemented |
 | Adapter Layer | **HIGH** | 1 week | Teams own translation (Integration Contract) |
 | Sensor Registry | MEDIUM | 2-3 days | ✅ **DONE** — Part of VehicleCapabilities |
 | Mission Abstraction | MEDIUM | 1 week | Not started |
@@ -1202,7 +1202,7 @@ Most OpenC2 deployments are outdoor with GPS. The frame issue primarily affects 
 
 > **This is the most important architectural decision in the project.**
 
-OpenC2 does not maintain bridges, adapters, or translators for external protocols. Teams who want to integrate with OpenC2 must emit OpenC2 proto on the multicast groups.
+Pidgin does not maintain bridges, adapters, or translators for external protocols. Teams who want to integrate with Pidgin must emit Pidgin proto on the multicast groups.
 
 ### The Contract
 
@@ -1215,7 +1215,7 @@ OpenC2 does not maintain bridges, adapters, or translators for external protocol
 │  │                                     │      │                         │   │
 │  │  ┌─────────────┐  ┌──────────────┐  │      │  ┌─────────────────┐    │   │
 │  │  │ Your State  │  │ Radio Node   │  │ radio│  │  Radio Receiver │    │   │
-│  │  │ (ROS2/DDS/  │─▶│ + OpenC2     │──┼──────┼─▶│  (passthrough)  │    │   │
+│  │  │ (ROS2/DDS/  │─▶│ + Pidgin     │──┼──────┼─▶│  (passthrough)  │    │   │
 │  │  │  custom)    │  │ Translation  │  │ link │  │                 │    │   │
 │  │  └─────────────┘  │ (~50 lines)  │  │      │  └────────┬────────┘    │   │
 │  │                   └──────────────┘  │      │           │             │   │
@@ -1226,30 +1226,30 @@ OpenC2 does not maintain bridges, adapters, or translators for external protocol
 └───────────────────────────────────────────────────────────┼─────────────────┘
                                                             │
 ┌───────────────────────────────────────────────────────────┼─────────────────┐
-│                        OPENC2 (We Own)                    │                 │
+│                        TOWER (We Own)                     │                 │
 │                                                           ▼                 │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                         OpenC2 Gateway                               │   │
-│  │                    (speaks OpenC2 proto ONLY)                        │   │
+│  │                         Tower Server                               │   │
+│  │                    (speaks Pidgin proto ONLY)                        │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 │                                      │                                      │
 │                                      ▼                                      │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                           OpenC2 UI                                  │   │
+│  │                           Tower                                  │   │
 │  └──────────────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key insight:** Translation happens **on the robot**, in the radio node that transmits. The ground station receiver is a passthrough — it just forwards OpenC2 proto to the local multicast group. This keeps the ground station generic across all robot types.
+**Key insight:** Translation happens **on the robot**, in the radio node that transmits. The ground station receiver is a passthrough — it just forwards Pidgin proto to the local multicast group. This keeps the ground station generic across all robot types.
 
-### What OpenC2 Provides
+### What Tower Provides
 
 | Asset | Description |
 |-------|-------------|
-| `openc2.proto` | The protocol definition — your translation target |
+| `pidgin.proto` | The protocol definition — your translation target |
 | Reference implementation | `cmd/testsender/` shows exactly how to emit telemetry |
 | Field documentation | Every field explained with units and semantics |
-| Validation | Gateway validates incoming protos, gives clear errors |
+| Validation | Server validates incoming protos, gives clear errors |
 | This document | Architecture guidance for teams |
 
 ### What Teams Own
@@ -1258,12 +1258,12 @@ OpenC2 does not maintain bridges, adapters, or translators for external protocol
 |----------------|-----|
 | Translation code | You know your state model — map it to `VehicleTelemetry` on the robot |
 | Correctness | You verify your translation emits valid protos |
-| Radio link | Your robot transmits OpenC2 proto; your ground station forwards it |
+| Radio link | Your robot transmits Pidgin proto; your ground station forwards it |
 | Latency | Translation runs on the robot — you control timing and bandwidth |
 
 ### Why This Matters
 
-**The alternative was bridges.** We would write `openc2-project1-bridge`, `openc2-project2-bridge` etc. This fails:
+**The alternative was bridges.** We would write `pidgin-project1-bridge`, `pidgin-project2-bridge` etc. This fails:
 
 | Problem | Impact |
 |---------|--------|
@@ -1286,19 +1286,19 @@ OpenC2 does not maintain bridges, adapters, or translators for external protocol
 
 ```go
 // On the robot: translate + serialize in your radio node
-func translateToOpenC2(odom *YourOdometry) *openc2.VehicleTelemetry {
-    return &openc2.VehicleTelemetry{
+func translateToPidgin(odom *YourOdometry) *pidgin.VehicleTelemetry {
+    return &pidgin.VehicleTelemetry{
         VehicleId:   "your-vehicle-id",
         TimestampMs: time.Now().UnixMilli(),
-        Location: &openc2.Location{
+        Location: &pidgin.Location{
             Latitude:   odom.Pose.Position.Latitude,
             Longitude:  odom.Pose.Position.Longitude,
             AltitudeMslM: float32(odom.Pose.Position.Altitude),
         },
         HeadingDeg:   float32(odom.Pose.Orientation.Yaw * 180 / math.Pi),
         SpeedMs:      float32(math.Sqrt(odom.Twist.Linear.X*odom.Twist.Linear.X + odom.Twist.Linear.Y*odom.Twist.Linear.Y)),
-        Environment:  openc2.Environment_GROUND,
-        Status:       openc2.VehicleStatus_ACTIVE,
+        Environment:  pidgin.Environment_GROUND,
+        Status:       pidgin.VehicleStatus_ACTIVE,
     }
 }
 ```
@@ -1307,11 +1307,11 @@ func translateToOpenC2(odom *YourOdometry) *openc2.VehicleTelemetry {
 
 ```cpp
 // On the robot: translate + serialize in your radio node
-#include "openc2.pb.h"
+#include "pidgin.pb.h"
 #include <cmath>
 
-openc2::VehicleTelemetry translateToOpenC2(const YourOdometry& odom) {
-    openc2::VehicleTelemetry telem;
+pidgin::VehicleTelemetry translateToPidgin(const YourOdometry& odom) {
+    pidgin::VehicleTelemetry telem;
     telem.set_vehicle_id("your-vehicle-id");
     telem.set_timestamp_ms(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count());
@@ -1325,8 +1325,8 @@ openc2::VehicleTelemetry translateToOpenC2(const YourOdometry& odom) {
     telem.set_speed_ms(std::sqrt(
         odom.twist.linear.x * odom.twist.linear.x + 
         odom.twist.linear.y * odom.twist.linear.y));
-    telem.set_environment(openc2::ENVIRONMENT_GROUND);
-    telem.set_status(openc2::VEHICLE_STATUS_ACTIVE);
+    telem.set_environment(pidgin::ENVIRONMENT_GROUND);
+    telem.set_status(pidgin::VEHICLE_STATUS_ACTIVE);
     
     return telem;
 }
@@ -1334,9 +1334,9 @@ openc2::VehicleTelemetry translateToOpenC2(const YourOdometry& odom) {
 
 ### Integration Checklist
 
-For teams integrating with OpenC2:
+For teams integrating with Tower:
 
-- [ ] Clone the proto: `api/proto/openc2.proto`
+- [ ] Clone the proto: `api/proto/pidgin.proto`
 - [ ] Generate code for your language (`protoc`, `buf generate`, etc.)
 - [ ] Add translation function to your robot's radio node (~50 lines)
 - [ ] Serialize `VehicleTelemetry` and transmit over your radio link
@@ -1350,11 +1350,11 @@ For teams integrating with OpenC2:
 |-----------|----------|
 | "Can't you just write a bridge for us?" | "You own your robot's radio node. You know your state model. The translation is 50 lines — you'll write it faster than explaining your format to us." |
 | "We don't want to maintain proto code" | "The proto is stable. Once your translation works, it works. We version the proto carefully — no breaking changes." |
-| "Our robot's radio node is frozen/legacy" | "Add a small sidecar process on the robot that subscribes to your existing output and emits OpenC2 proto. Still your code, your responsibility." |
+| "Our robot's radio node is frozen/legacy" | "Add a small sidecar process on the robot that subscribes to your existing output and emits Pidgin proto. Still your code, your responsibility." |
 
 ### The Result
 
-- **Gateway stays pure**: Only speaks OpenC2 proto. No protocol zoo.
+- **Server stays pure**: Only speaks Pidgin proto. No protocol zoo.
 - **Clear ownership**: Teams own their translation. We own the platform.
 - **No maintenance scaling**: Adding team N+1 requires zero work from us.
-- **Predictable debugging**: If data looks wrong, it's the translation. If gateway breaks, it's us.
+- **Predictable debugging**: If data looks wrong, it's the translation. If server breaks, it's us.

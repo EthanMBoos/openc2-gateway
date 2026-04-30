@@ -1,7 +1,7 @@
 // BlueBoat USV Extension Protocol
 //
 // Extension telemetry and command definitions for BlueRobotics BlueBoat USV.
-// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+// This is an extension proto — payloads are carried inside pidgin.ExtensionData.
 //
 // See docs/EXTENSIBILITY.md for extension architecture.
 
@@ -9,10 +9,10 @@ syntax = "proto3";
 
 package blueboat;
 
-option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/blueboat";
+option go_package = "github.com/EthanMBoos/tower-server/internal/extensions/blueboat";
 
 // ============================================================================
-// Telemetry (Vehicle → Gateway)
+// Telemetry (Vehicle → Server)
 // ============================================================================
 
 // BlueboatTelemetry contains BlueBoat-specific state sent in VehicleTelemetry.extensions["blueboat"].
@@ -85,7 +85,7 @@ message DockLocation {
 }
 
 // ============================================================================
-// Commands (Gateway → Vehicle)
+// Commands (Server → Vehicle)
 // ============================================================================
 
 // SetNavModeCommand changes the navigation mode.

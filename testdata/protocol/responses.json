@@ -1,13 +1,13 @@
 {
-  "_comment": "Sample response frames from gateway to UI (acks, alerts, errors).",
-  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  "_comment": "Sample response frames from server to UI (acks, alerts, errors).",
+  "_source_of_truth": "tower-server/internal/protocol/frame.go",
   
   "command_ack_accepted": {
     "protocolVersion": 1,
     "type": "command_ack",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700802100,
-    "gatewayTimestampMs": 1710700802150,
+    "serverTimestampMs": 1710700802150,
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
       "status": "accepted",
@@ -20,7 +20,7 @@
     "type": "command_ack",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700810000,
-    "gatewayTimestampMs": 1710700810050,
+    "serverTimestampMs": 1710700810050,
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440000",
       "status": "completed",
@@ -33,7 +33,7 @@
     "type": "command_ack",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700803100,
-    "gatewayTimestampMs": 1710700803150,
+    "serverTimestampMs": 1710700803150,
     "data": {
       "commandId": "cmd-550e8400-e29b-41d4-a716-446655440001",
       "status": "rejected",
@@ -46,7 +46,7 @@
     "type": "alert",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700815000,
-    "gatewayTimestampMs": 1710700815010,
+    "serverTimestampMs": 1710700815010,
     "data": {
       "severity": "warning",
       "code": "LOW_BATTERY",
@@ -64,7 +64,7 @@
     "type": "alert",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700820000,
-    "gatewayTimestampMs": 1710700820010,
+    "serverTimestampMs": 1710700820010,
     "data": {
       "severity": "critical",
       "code": "GEOFENCE_BREACH",
@@ -80,9 +80,9 @@
   "error_rate_limited": {
     "protocolVersion": 1,
     "type": "error",
-    "vehicleId": "_gateway",
+    "vehicleId": "_server",
     "timestampMs": 1710700825000,
-    "gatewayTimestampMs": 1710700825000,
+    "serverTimestampMs": 1710700825000,
     "data": {
       "code": "RATE_LIMITED",
       "message": "Command rate limit exceeded for ugv-husky-07 (10/sec)",
@@ -93,9 +93,9 @@
   "error_vehicle_not_found": {
     "protocolVersion": 1,
     "type": "error",
-    "vehicleId": "_gateway",
+    "vehicleId": "_server",
     "timestampMs": 1710700826000,
-    "gatewayTimestampMs": 1710700826000,
+    "serverTimestampMs": 1710700826000,
     "data": {
       "code": "VEHICLE_NOT_FOUND",
       "message": "Unknown vehicle: ugv-phantom-99",
@@ -106,9 +106,9 @@
   "error_protocol_version": {
     "protocolVersion": 1,
     "type": "error",
-    "vehicleId": "_gateway",
+    "vehicleId": "_server",
     "timestampMs": 1710700827000,
-    "gatewayTimestampMs": 1710700827000,
+    "serverTimestampMs": 1710700827000,
     "data": {
       "code": "PROTOCOL_VERSION_UNSUPPORTED",
       "message": "Protocol version 99 not supported",
@@ -121,11 +121,11 @@
     "type": "status",
     "vehicleId": "ugv-husky-07",
     "timestampMs": 1710700830000,
-    "gatewayTimestampMs": 1710700830000,
+    "serverTimestampMs": 1710700830000,
     "data": {
       "status": "standby",
       "signalStrength": 2,
-      "source": "gateway"
+      "source": "server"
     }
   }
 }

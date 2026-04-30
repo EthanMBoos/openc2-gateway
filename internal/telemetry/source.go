@@ -1,13 +1,13 @@
-// Package telemetry provides telemetry data sources for the gateway.
+// Package telemetry provides telemetry data sources for the server.
 package telemetry
 
 import (
 	"context"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 )
 
-// Source provides telemetry frames to the gateway.
+// Source provides telemetry frames to the server.
 // Implementations include mock sources (for testing) and multicast listeners.
 type Source interface {
 	// Start begins producing telemetry frames.

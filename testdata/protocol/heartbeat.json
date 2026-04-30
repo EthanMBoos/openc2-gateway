@@ -1,12 +1,12 @@
 {
   "_comment": "Sample heartbeat frame with capability advertisement.",
-  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  "_source_of_truth": "tower-server/internal/protocol/frame.go",
   
   "protocolVersion": 1,
   "type": "heartbeat",
   "vehicleId": "ugv-husky-07",
   "timestampMs": 1710700801000,
-  "gatewayTimestampMs": 1710700801010,
+  "serverTimestampMs": 1710700801010,
   "data": {
     "uptimeMs": 3600000,
     "vehicleType": "clearpath-husky-a200",

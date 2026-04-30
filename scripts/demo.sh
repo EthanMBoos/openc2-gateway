@@ -1,5 +1,5 @@
 #!/bin/bash
-# Demo script - starts gateway with simulated vehicles
+# Demo script - starts server with simulated vehicles
 #
 # Usage:
 #   ./scripts/demo.sh          # 3 vehicles (default)
@@ -12,23 +12,23 @@ set -e
 
 VEHICLE_COUNT=${1:-3}
 
-echo "Starting OpenC2 Gateway demo with $VEHICLE_COUNT vehicles..."
+echo "Starting Tower Server demo with $VEHICLE_COUNT vehicles..."
 echo ""
 
 # Cleanup on exit
 cleanup() {
     echo ""
     echo "Shutting down..."
-    pkill -f "go run ./cmd/gateway" 2>/dev/null || true
+    pkill -f "go run ./cmd/tower-server" 2>/dev/null || true
     pkill -f "go run ./cmd/testsender" 2>/dev/null || true
     echo "Done."
 }
 trap cleanup EXIT
 
-# Start gateway
-echo "→ Starting gateway on :9000..."
-go run ./cmd/gateway &
-GATEWAY_PID=$!
+# Start server
+echo "→ Starting server on :9000..."
+go run ./cmd/tower-server &
+SERVER_PID=$!
 sleep 1
 
 # Start test senders
@@ -59,5 +59,5 @@ echo "  Press Ctrl+C to stop"
 echo "════════════════════════════════════════════════════════════"
 echo ""
 
-# Wait for gateway
-wait $GATEWAY_PID
+# Wait for server
+wait $SERVER_PID

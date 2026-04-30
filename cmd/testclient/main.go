@@ -1,4 +1,4 @@
-// Package main provides a simple integration test for the gateway.
+// Package main provides a simple integration test for the server.
 package main
 
 import (
@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -41,14 +41,14 @@ func main() {
 
 	flag.Parse()
 
-	// Connect to gateway
+	// Connect to server
 	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:9000", nil)
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
 	defer conn.Close()
 
-	fmt.Println("✓ Connected to gateway")
+	fmt.Println("✓ Connected to server")
 
 	// Error test mode: bad protocol version
 	if *badVersion {

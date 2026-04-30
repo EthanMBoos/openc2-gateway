@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
 )
 
 // Status represents the vehicle operational status.

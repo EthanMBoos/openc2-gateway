@@ -1,12 +1,12 @@
 {
-  "_comment": "Sample telemetry frame from gateway to UI. Both repos validate against this.",
-  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  "_comment": "Sample telemetry frame from server to UI. Both repos validate against this.",
+  "_source_of_truth": "tower-server/internal/protocol/frame.go",
   
   "protocolVersion": 1,
   "type": "telemetry",
   "vehicleId": "ugv-husky-07",
   "timestampMs": 1710700800000,
-  "gatewayTimestampMs": 1710700800050,
+  "serverTimestampMs": 1710700800050,
   "data": {
     "location": {
       "lat": 33.7756,

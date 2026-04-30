@@ -1,18 +1,18 @@
-// OpenC2 Gateway - Bridge between vehicles and UI
+// Tower Server - Bridge between vehicles and UI
 //
-// The gateway receives protobuf telemetry from vehicles via UDP multicast
+// The server receives protobuf telemetry from vehicles via UDP multicast
 // and relays it to UI clients over WebSocket in JSON format.
 //
 // Usage:
 //
-//	go run ./cmd/gateway
-//	OPENC2_WS_PORT=8080 go run ./cmd/gateway
+//	go run ./cmd/tower-server
+//	TOWER_WS_PORT=8080 go run ./cmd/tower-server
 //
 // For testing, use testsender to simulate vehicle telemetry:
 //
 //	go run ./cmd/testsender -vid ugv-test-01
 //
-// See docs/GATEWAY_IMPLEMENTATION.md for full configuration options.
+// See docs/SERVER_IMPLEMENTATION.md for full configuration options.
 package main
 
 import (
@@ -25,19 +25,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/command"
-	"github.com/EthanMBoos/openc2-gateway/internal/config"
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
-	"github.com/EthanMBoos/openc2-gateway/internal/observability"
-	"github.com/EthanMBoos/openc2-gateway/internal/protocol"
-	"github.com/EthanMBoos/openc2-gateway/internal/registry"
-	"github.com/EthanMBoos/openc2-gateway/internal/telemetry"
-	"github.com/EthanMBoos/openc2-gateway/internal/websocket"
+	"github.com/EthanMBoos/tower-server/internal/command"
+	"github.com/EthanMBoos/tower-server/internal/config"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
+	"github.com/EthanMBoos/tower-server/internal/observability"
+	"github.com/EthanMBoos/tower-server/internal/protocol"
+	"github.com/EthanMBoos/tower-server/internal/registry"
+	"github.com/EthanMBoos/tower-server/internal/telemetry"
+	"github.com/EthanMBoos/tower-server/internal/websocket"
 
 	// Extension codecs register themselves via init()
-	_ "github.com/EthanMBoos/openc2-gateway/internal/extensions/blueboat"
-	_ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
-	_ "github.com/EthanMBoos/openc2-gateway/internal/extensions/skydio"
+	_ "github.com/EthanMBoos/tower-server/internal/extensions/blueboat"
+	_ "github.com/EthanMBoos/tower-server/internal/extensions/husky"
+	_ "github.com/EthanMBoos/tower-server/internal/extensions/skydio"
 )
 
 // Version is set at build time via ldflags.
@@ -65,7 +65,7 @@ func run() error {
 
 	// Override version if built with ldflags
 	if Version != "dev" {
-		cfg.GatewayVersion = Version
+		cfg.ServerVersion = Version
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -81,8 +81,8 @@ func run() error {
 	}
 
 	// Log startup configuration
-	slog.Info("starting openc2-gateway",
-		"version", cfg.GatewayVersion,
+	slog.Info("starting tower-server",
+		"version", cfg.ServerVersion,
 		"ws_port", cfg.WSPort,
 		"telemetry_sources", len(cfg.MulticastSources),
 	)
@@ -111,7 +111,7 @@ func run() error {
 	// Create WebSocket server
 	wsServer := websocket.NewServer(websocket.ServerConfig{
 		Port:           cfg.WSPort,
-		GatewayVersion: cfg.GatewayVersion,
+		ServerVersion: cfg.ServerVersion,
 	}, reg, cmdTracker)
 
 	// Create metrics for observability
@@ -134,7 +134,7 @@ func run() error {
 
 	// Wire registry status transitions to broadcast via WebSocket
 	reg.SetTransitionCallback(func(t registry.StatusTransition) {
-		frame := protocol.NewStatusFrame(t.VehicleID, string(t.To), nil, "gateway")
+		frame := protocol.NewStatusFrame(t.VehicleID, string(t.To), nil, "server")
 		wsServer.Broadcast(frame)
 	})
 
@@ -259,6 +259,6 @@ func run() error {
 		slog.Warn("websocket shutdown error", "error", err)
 	}
 
-	slog.Info("gateway stopped")
+	slog.Info("server stopped")
 	return nil
 }

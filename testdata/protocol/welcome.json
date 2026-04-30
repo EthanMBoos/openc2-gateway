@@ -1,14 +1,14 @@
 {
   "_comment": "Sample welcome response after hello handshake. Contains fleet bootstrap data.",
-  "_source_of_truth": "openc2-gateway/internal/protocol/frame.go",
+  "_source_of_truth": "tower-server/internal/protocol/frame.go",
   
   "protocolVersion": 1,
   "type": "welcome",
-  "vehicleId": "_gateway",
+  "vehicleId": "_server",
   "timestampMs": 1710700800000,
-  "gatewayTimestampMs": 1710700800000,
+  "serverTimestampMs": 1710700800000,
   "data": {
-    "gatewayVersion": "0.1.0",
+    "serverVersion": "0.1.0",
     "protocolVersion": 1,
     "supportedVersions": [1],
     "fleet": [

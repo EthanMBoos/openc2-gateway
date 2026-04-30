@@ -1,6 +1,6 @@
-# OpenC2 Gateway Protocol Specification
+# Tower Server Protocol Specification
 
-> **Purpose**: Behavioral contracts and architecture for gateway ↔ UI communication.  
+> **Purpose**: Behavioral contracts and architecture for server ↔ UI communication.  
 > **Source of truth for types**: See [`internal/protocol/`](../internal/protocol/) for Go types, validation, and translation.  
 > **Terminology**: See [GLOSSARY.md](GLOSSARY.md) for definitions of `seq`, `gts`, `HWM`, and other key terms.
 
@@ -9,14 +9,14 @@
 ## Overview
 
 ```
-Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JSON/WebSocket───▶ UI Client
+Radio Node ◀───protobuf/UDP multicast───▶ Server ◀───JSON/WebSocket───▶ UI Client
 ```
 
 | Direction | Format | Transport | Address |
 |-----------|--------|-----------|---------|
-| Vehicle → Gateway | protobuf | UDP multicast | `239.255.0.1:14550` |
-| Gateway → Vehicle | protobuf | UDP multicast | `239.255.0.2:14551` |
-| Gateway ↔ UI | JSON | WebSocket | `ws://localhost:9000` |
+| Vehicle → Server | protobuf | UDP multicast | `239.255.0.1:14550` |
+| Server → Vehicle | protobuf | UDP multicast | `239.255.0.2:14551` |
+| Server ↔ UI | JSON | WebSocket | `ws://localhost:9000` |
 
 ---
 
@@ -35,11 +35,11 @@ Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JS
 ## Connection Lifecycle
 
 ```
-                        VEHICLE ↔ GATEWAY                    GATEWAY ↔ UI
+                        VEHICLE ↔ SERVER                    SERVER ↔ UI
                        (protobuf/UDP multicast)              (JSON/WebSocket)
                        
 ┌─────────────┐                           ┌─────────────┐                    ┌─────────────┐
-│   Vehicle   │                           │   Gateway   │                    │     UI      │
+│   Vehicle   │                           │   Server   │                    │     UI      │
 └──────┬──────┘                           └──────┬──────┘                    └──────┬──────┘
        │                                         │                                  │
        │                                         │◀────────── hello ────────────────│
@@ -55,16 +55,16 @@ Radio Node ◀───protobuf/UDP multicast───▶ Gateway ◀───JS
 ```
 
 - Client MUST send `hello` as first message
-- Gateway responds with `welcome` containing full fleet state, available extensions, and manifests
-- Gateway broadcasts subsequent vehicle `heartbeat` frames to all handshaked UI clients, including live capability updates
+- Server responds with `welcome` containing full fleet state, available extensions, and manifests
+- Server broadcasts subsequent vehicle `heartbeat` frames to all handshaked UI clients, including live capability updates
 - Vehicles do NOT receive the `welcome` message — it's UI-only
-- `GatewayHeartbeat` is defined for future vehicle-side loss detection, but the current gateway does not broadcast it yet
+- `ServerHeartbeat` is defined for future vehicle-side loss detection, but the current server does not broadcast it yet
 
 ---
 
 ## Client Reconnection
 
-On disconnect (network drop, gateway restart, client refresh), the client MUST:
+On disconnect (network drop, server restart, client refresh), the client MUST:
 
 1. **Reconnect** via new WebSocket connection
 2. **Send `hello`** to re-handshake
@@ -76,7 +76,7 @@ On disconnect (network drop, gateway restart, client refresh), the client MUST:
 |----------|------------------------|---------------------------|
 | Vehicle removed from fleet while disconnected | Ghost vehicle persists locally | Vehicle disappears |
 | Vehicle status changed during disconnect | Stale status shown | Correct status from snapshot |
-| Gateway restarted, registry cleared | Client shows vehicles gateway doesn't know | Clean slate |
+| Server restarted, registry cleared | Client shows vehicles server doesn't know | Clean slate |
 
 **Implementation hint:**
 ```typescript
@@ -101,7 +101,7 @@ Between disconnect and receiving `welcome`, the UI SHOULD:
 
 ## Message Types
 
-### Gateway → UI
+### Server → UI
 
 | Type | Frequency | Droppable | Description |
 |------|-----------|-----------|-------------|
@@ -114,7 +114,7 @@ Between disconnect and receiving `welcome`, the UI SHOULD:
 | `welcome` | Once | No | Handshake response |
 | `error` | On demand | No | Protocol/system error |
 
-### UI → Gateway
+### UI → Server
 
 | Type | Description |
 |------|-------------|
@@ -130,13 +130,13 @@ Between disconnect and receiving `welcome`, the UI SHOULD:
 - **Telemetry**: May arrive out-of-order (UDP). Use `seq` (sequence number) for ordering, NOT timestamp.
   - `seq` is monotonic per-vehicle, wraps at 2^32
   - Vehicle timestamps (`ts`) are **untrusted** — use for display only
-  - Gateway timestamps (`gts`) are authoritative for cross-vehicle correlation
+  - Server timestamps (`gts`) are authoritative for cross-vehicle correlation
 - **Commands**: Processed in order received.
 - **Status/Acks**: Delivered reliably in order (WebSocket).
 
-#### Gateway Deduplication (Sequence Tracking)
+#### Server Deduplication (Sequence Tracking)
 
-The gateway maintains a **high-water mark (HWM)** per vehicle for sequence numbers:
+The server maintains a **high-water mark (HWM)** per vehicle for sequence numbers:
 
 | Condition | Action | Reason |
 |-----------|--------|--------|
@@ -158,11 +158,11 @@ Example wrap-around:
 **Implementation**: See [`internal/protocol/sequence.go`](../internal/protocol/sequence.go)
 
 > **Why untrusted timestamps?** Vehicles often lack RTC batteries, NTP connectivity, or stable GPS fix at boot. 
-> Assume vehicle clocks can be hours or days off. The gateway's local clock is the single source of truth.
+> Assume vehicle clocks can be hours or days off. The server's local clock is the single source of truth.
 
 #### Vehicle Reboot Detection (Registry ↔ Sequence Tracker Contract)
 
-**Problem:** When a vehicle reboots, its sequence number resets to 0. If the gateway's high-water mark (HWM) is still at the pre-reboot value (e.g., 50000), all new telemetry with `seq < 50000` is silently dropped as "stale."
+**Problem:** When a vehicle reboots, its sequence number resets to 0. If the server's high-water mark (HWM) is still at the pre-reboot value (e.g., 50000), all new telemetry with `seq < 50000` is silently dropped as "stale."
 
 **Solution:** The vehicle registry MUST call `SequenceTracker.Reset(vehicleID)` when a vehicle transitions from `offline` → `online`.
 
@@ -197,16 +197,16 @@ Tying reset to the offline→online transition is unambiguous and matches the ph
 
 #### UI Staleness Detection (Client Responsibility)
 
-The gateway does **NOT** filter telemetry by timestamp due to clock skew risk. Instead, the UI MUST detect stale data using sequence gaps:
+The server does **NOT** filter telemetry by timestamp due to clock skew risk. Instead, the UI MUST detect stale data using sequence gaps:
 
 | Condition | Meaning | UI Action |
 |-----------|---------|-----------|
 | `seq` increments by 1 | Normal | Display telemetry |
 | `seq` gap > 1 | Packet loss | Display telemetry, optionally warn operator |
 | `seq` gap > 100 | Major backlog or partition recovery | Consider discarding or showing "recovering" state |
-| No telemetry for `gts` > 3s | Standby/offline | Use status state machine (gateway handles this) |
+| No telemetry for `gts` > 3s | Standby/offline | Use status state machine (server handles this) |
 
-**Why not filter at gateway?** Vehicle timestamps are untrusted. If the gateway rejected messages where `gts - ts > threshold`, a vehicle with a mis-set clock would have all telemetry dropped. The sequence number is the only reliable ordering mechanism.
+**Why not filter at server?** Vehicle timestamps are untrusted. If the server rejected messages where `gts - ts > threshold`, a vehicle with a mis-set clock would have all telemetry dropped. The sequence number is the only reliable ordering mechanism.
 
 **UI implementation hint:**
 ```typescript
@@ -223,14 +223,14 @@ lastSeq[msg.vid] = msg.data.seq;
 - All messages include `v` field (currently `1`)
 - Minor changes (new optional fields): No version bump
 - Breaking changes: Increment version
-- Gateway supports current + one prior version
+- Server supports current + one prior version
 - Clients ignore unknown fields
 
 ### Transport Profiles (Planned)
 
-If future deployments need to optimize for **spotty links**, **bandwidth caps**, or **smaller protobuf frames**, the recommended path is to add a **transport profile** rather than mutating the core OpenC2 object model.
+If future deployments need to optimize for **spotty links**, **bandwidth caps**, or **smaller protobuf frames**, the recommended path is to add a **transport profile** rather than mutating the core Pidgin object model.
 
-**Design rule:** Keep the semantic contract stable (`VehicleTelemetry`, `Heartbeat`, `Command`, `CommandAck`, extension manifests/capabilities). Optimize how often fields are sent and, only if necessary, add a profile-specific compact representation that the gateway immediately translates back into the canonical model.
+**Design rule:** Keep the semantic contract stable (`VehicleTelemetry`, `Heartbeat`, `Command`, `CommandAck`, extension manifests/capabilities). Optimize how often fields are sent and, only if necessary, add a profile-specific compact representation that the server immediately translates back into the canonical model.
 
 #### Why a Transport Profile Instead of Ad-Hoc Shrinking?
 
@@ -247,7 +247,7 @@ The safer approach is:
 
 1. Keep one canonical protocol model
 2. Negotiate a link profile per session or deployment
-3. Let the gateway normalize constrained-link input back to the canonical JSON/UI model
+3. Let the server normalize constrained-link input back to the canonical JSON/UI model
 
 #### Recommended Profiles
 
@@ -284,7 +284,7 @@ Start with sender behavior changes before introducing any new wire shape.
 - Vehicles SHOULD move capability advertisement to `Heartbeat.capabilities` only.
 - Vehicles SHOULD send sticky fields only on change, plus a periodic refresh to heal packet loss.
 - Vehicles SHOULD send extension telemetry at a lower rate than core motion telemetry unless the extension is mission-critical.
-- The gateway MUST continue translating received data into the same canonical UI JSON shape.
+- The server MUST continue translating received data into the same canonical UI JSON shape.
 
 This profile avoids wire breakage and usually captures most of the bandwidth win, because the largest recurring costs are repeated strings and extension maps, not protobuf tag overhead.
 
@@ -296,7 +296,7 @@ Recommended constraints for that future work:
 
 - Add a new compact telemetry payload alongside existing `VehicleTelemetry`; do not redefine the meaning of existing fields.
 - Keep `Command`, `CommandAck`, and error semantics unchanged.
-- Make compact frames gateway-facing only; the gateway rehydrates them into canonical telemetry before forwarding to UI clients.
+- Make compact frames server-facing only; the server rehydrates them into canonical telemetry before forwarding to UI clients.
 - Require periodic full snapshots so a receiver can recover after packet loss without an out-of-band reset.
 - Negotiate profile/version explicitly; never infer compact-mode from missing fields.
 
@@ -317,26 +317,26 @@ Those changes buy less than expected early, while making debugging and future co
 
 If this comes up after release, the recommended answer is:
 
-> OpenC2 will keep one stable semantic protocol. For degraded networks, we will introduce a negotiated transport profile called `constrained` that first reduces bandwidth through emission rules and lower-rate extension state, and only if needed adds a compact gateway-facing telemetry frame in a future version. The gateway will normalize that back into the existing canonical model so the UI and tooling do not fork.
+> Tower will keep one stable semantic protocol. For degraded networks, we will introduce a negotiated transport profile called `constrained` that first reduces bandwidth through emission rules and lower-rate extension state, and only if needed adds a compact server-facing telemetry frame in a future version. The server will normalize that back into the existing canonical model so the UI and tooling do not fork.
 
 #### Version Negotiation (Hello/Welcome)
 
 The `hello` → `welcome` handshake performs version negotiation:
 
 1. Client sends `hello` with `data.protocolVersion` set to the version it wants
-2. Gateway checks if that version is in its `SupportedVersions` list
-3. If supported: Gateway responds with `welcome`, using that version for the session
-4. If unsupported: Gateway sends `error` with `PROTOCOL_VERSION_UNSUPPORTED` and the list of supported versions
+2. Server checks if that version is in its `SupportedVersions` list
+3. If supported: Server responds with `welcome`, using that version for the session
+4. If unsupported: Server sends `error` with `PROTOCOL_VERSION_UNSUPPORTED` and the list of supported versions
 
 **Welcome message includes:**
 ```json
 {
   "protocolVersion": 1,
   "type": "welcome",
-  "vehicleId": "_gateway",
+  "vehicleId": "_server",
   "timestampMs": 1710700800000,
   "data": {
-    "gatewayVersion": "0.1.0",
+    "serverVersion": "0.1.0",
     "protocolVersion": 1,
     "supportedVersions": [1],
     "fleet": [...],
@@ -363,8 +363,8 @@ The `hello` → `welcome` handshake performs version negotiation:
 | Field | Description |
 |-------|-------------|
 | `protocolVersion` | The negotiated version for this session |
-| `supportedVersions` | All versions this gateway can speak (for client diagnostics) |
-| `availableExtensions` | Extensions the gateway has codecs for (namespace + version) |
+| `supportedVersions` | All versions this server can speak (for client diagnostics) |
+| `availableExtensions` | Extensions the server has codecs for (namespace + version) |
 | `manifests` | Extension manifests with UI metadata (commands, labels, confirmations) |
 
 **Client implementation hint:** If you receive `PROTOCOL_VERSION_UNSUPPORTED`, check `supportedVersions` in the error payload and downgrade if possible.
@@ -376,10 +376,10 @@ Commands throttled to **10/second per vehicle**. This limit is **global per vehi
 Excess commands are rejected with an error frame sent back to the UI.
 
 ```
-UI ── command (1st-10th) ──▶ Gateway ── multicast ──▶ Vehicle
+UI ── command (1st-10th) ──▶ Server ── multicast ──▶ Vehicle
 UI ◀── command_ack {status: "accepted"} ──┘
 
-UI ── command (11th in 1 sec) ──▶ Gateway
+UI ── command (11th in 1 sec) ──▶ Server
 UI ◀── error {code: "RATE_LIMITED", message: "..."} ──┘
        (command NOT broadcast to vehicle)
 ```
@@ -389,9 +389,9 @@ UI ◀── error {code: "RATE_LIMITED", message: "..."} ──┘
 {
   "protocolVersion": 1,
   "type": "error",
-  "vehicleId": "_gateway",
+  "vehicleId": "_server",
   "timestampMs": 1710700800000,
-  "gatewayTimestampMs": 1710700800000,
+  "serverTimestampMs": 1710700800000,
   "data": {
     "code": "RATE_LIMITED",
     "message": "Command rate limit exceeded for ugv-husky-07 (10/sec)",
@@ -427,12 +427,12 @@ The UI SHOULD display this error to the operator so they know the command was no
                           └─────────┘
 ```
 
-**Initial state:** When the gateway receives the first telemetry from a previously-unknown vehicle, it creates that vehicle in the `ONLINE` state. There is no explicit "first seen" state.
+**Initial state:** When the server receives the first telemetry from a previously-unknown vehicle, it creates that vehicle in the `ONLINE` state. There is no explicit "first seen" state.
 
 Configurable via:
 ```bash
-OPENC2_STANDBY_TIMEOUT=3s
-OPENC2_OFFLINE_TIMEOUT=10s
+TOWER_STANDBY_TIMEOUT=3s
+TOWER_OFFLINE_TIMEOUT=10s
 ```
 
 ### Heartbeat Interval
@@ -442,23 +442,23 @@ Telemetry packets reset the heartbeat timer (no need to send both simultaneously
 
 ---
 
-## Gateway Loss Detection (Vehicle-Side)
+## Server Loss Detection (Vehicle-Side)
 
-> **STATUS: NOT IMPLEMENTED** — This section describes planned behavior. The `GatewayHeartbeat` message is not yet defined in `openc2.proto` and the gateway does not yet broadcast heartbeats. Vehicle-side failsafe is the vehicle's responsibility for MVP.
+> **STATUS: NOT IMPLEMENTED** — This section describes planned behavior. The `ServerHeartbeat` message is not yet defined in `pidgin.proto` and the server does not yet broadcast heartbeats. Vehicle-side failsafe is the vehicle's responsibility for MVP.
 
-Vehicles SHOULD detect gateway connectivity loss and trigger appropriate failsafe behavior. The gateway will broadcast `GatewayHeartbeat` on multicast `239.255.0.2:14551` every **1 second** once implemented.
+Vehicles SHOULD detect server connectivity loss and trigger appropriate failsafe behavior. The server will broadcast `ServerHeartbeat` on multicast `239.255.0.2:14551` every **1 second** once implemented.
 
 ### Detection
 
 | Condition | Action |
 |-----------|--------|
-| No `GatewayHeartbeat` received for `OPENC2_GATEWAY_TIMEOUT` (default 5s) | Enter failsafe mode |
-| `GatewayHeartbeat` received after failsafe | Resume normal operation |
-| `GatewayHeartbeat.sequence_num` gap > 3 | Log warning (packet loss), continue |
+| No `ServerHeartbeat` received for `TOWER_HEARTBEAT_TIMEOUT` (default 5s) | Enter failsafe mode |
+| `ServerHeartbeat` received after failsafe | Resume normal operation |
+| `ServerHeartbeat.sequence_num` gap > 3 | Log warning (packet loss), continue |
 
 ### Failsafe Behaviors
 
-Vehicles MUST implement one of the following failsafe modes, configured via `OPENC2_FAILSAFE_MODE`:
+Vehicles MUST implement one of the following failsafe modes, configured via `TOWER_FAILSAFE_MODE`:
 
 | Mode | Behavior | Use Case |
 |------|----------|----------|
@@ -472,15 +472,15 @@ Vehicles MUST implement one of the following failsafe modes, configured via `OPE
 ### State Diagram (Vehicle Perspective)
 
 ```
-                          GatewayHeartbeat
+                          ServerHeartbeat
                         ┌─────────────────┐
                         ▼                 │
 ┌────────────────┐  heartbeat rx   ┌──────────────┐
-│ GATEWAY_LOST   │◀────────────────│ CONNECTED    │
+│ SERVER_LOST   │◀────────────────│ CONNECTED    │
 │ (failsafe mode)│                 │              │
 └────────────────┘                 └──────────────┘
         │                                 ▲
-        │ GatewayHeartbeat rx             │
+        │ ServerHeartbeat rx             │
         └─────────────────────────────────┘
               (resume normal ops)
 ```
@@ -489,31 +489,31 @@ Vehicles MUST implement one of the following failsafe modes, configured via `OPE
 
 ```bash
 # Vehicle-side environment variables
-OPENC2_GATEWAY_TIMEOUT=5s      # Time without heartbeat before failsafe
-OPENC2_FAILSAFE_MODE=RTL       # RTL, HOLD, CONTINUE, or LAND
+TOWER_HEARTBEAT_TIMEOUT=5s      # Time without heartbeat before failsafe
+TOWER_FAILSAFE_MODE=RTL       # RTL, HOLD, CONTINUE, or LAND
 ```
 
 ### Implementation Notes
 
 1. **Hysteresis**: Vehicles SHOULD require 2-3 consecutive heartbeats before exiting failsafe to avoid flapping on unreliable links.
 
-2. **Logging**: Vehicles MUST log gateway loss/recovery events for post-mission analysis.
+2. **Logging**: Vehicles MUST log server loss/recovery events for post-mission analysis.
 
-3. **Alert**: On gateway loss, vehicles SHOULD queue an `Alert` message (severity `WARNING`, code `GATEWAY_LOST`) to be sent when connectivity resumes.
+3. **Alert**: On server loss, vehicles SHOULD queue an `Alert` message (severity `WARNING`, code `SERVER_LOST`) to be sent when connectivity resumes.
 
-4. **No Time Sync**: Vehicles SHOULD NOT use `GatewayHeartbeat.timestamp_ms` for clock sync — the gateway clock is authoritative for the UI only, not for vehicle autonomy.
+4. **No Time Sync**: Vehicles SHOULD NOT use `ServerHeartbeat.timestamp_ms` for clock sync — the server clock is authoritative for the UI only, not for vehicle autonomy.
 
 ---
 
 ## Command Delivery
 
 ```
-UI ── command ──▶ Gateway ── multicast 239.255.0.2 ──▶ All Radio Nodes
+UI ── command ──▶ Server ── multicast 239.255.0.2 ──▶ All Radio Nodes
                      │                                    (filter by vid)
 UI ◀── ack ─────────┘ (immediate)
 ```
 
-### Gateway ACK (Immediate)
+### Server ACK (Immediate)
 
 | Ack Status | Meaning |
 |------------|---------|
@@ -523,18 +523,18 @@ UI ◀── ack ─────────┘ (immediate)
 
 ### Vehicle ACK (Async, Best-Effort)
 
-Vehicles MAY send `CommandAck` back via the `VehicleMessage` envelope. The gateway:
-1. Tracks pending commands per-vehicle with `OPENC2_CMD_TIMEOUT` (default 5s)
+Vehicles MAY send `CommandAck` back via the `VehicleMessage` envelope. The server:
+1. Tracks pending commands per-vehicle with `TOWER_CMD_TIMEOUT` (default 5s)
 2. If vehicle ACK received within timeout → forward to UI
 3. If timeout expires → send synthetic `command_ack` with `status: "timeout"` to UI
 
 ```
-UI ── command ──────────────────────▶ Gateway ── multicast ──▶ Vehicle
+UI ── command ──────────────────────▶ Server ── multicast ──▶ Vehicle
 UI ◀── command_ack {accepted} ──────┘ (immediate)
 
 ... 5 seconds pass, no vehicle response ...
 
-UI ◀── command_ack {timeout} ───────┘ (synthetic, from gateway)
+UI ◀── command_ack {timeout} ───────┘ (synthetic, from server)
 ```
 
 **Timeout ack format:**
@@ -544,7 +544,7 @@ UI ◀── command_ack {timeout} ───────┘ (synthetic, from gat
   "type": "command_ack",
   "vehicleId": "ugv-husky-07",
   "timestampMs": 1710700805000,
-  "gatewayTimestampMs": 1710700805000,
+  "serverTimestampMs": 1710700805000,
   "data": {
     "commandId": "abc123",
     "status": "timeout",
@@ -559,9 +559,9 @@ The UI SHOULD treat `timeout` as "command may or may not have been received" —
 
 | Status | Source | Meaning | UI Action |
 |--------|--------|---------|------------|
-| `accepted` | Gateway | Command broadcast to network | Show pending indicator |
-| `rejected` | Gateway | Invalid command or vehicle | Show error, command not sent |
-| `timeout` | Gateway | No vehicle response within timeout | Show warning, outcome unknown |
+| `accepted` | Server | Command broadcast to network | Show pending indicator |
+| `rejected` | Server | Invalid command or vehicle | Show error, command not sent |
+| `timeout` | Server | No vehicle response within timeout | Show warning, outcome unknown |
 | `accepted` | Vehicle | Vehicle received and will execute | Update to "executing" |
 | `completed` | Vehicle | Action finished successfully | Clear pending, show success |
 | `failed` | Vehicle | Execution failed | Show error with message |
@@ -573,7 +573,7 @@ This may arrive seconds/minutes after the initial `ACK_ACCEPTED`.
 
 ### Protobuf ↔ JSON Status Mapping
 
-The gateway translates between protobuf enum values and JSON strings. This table is the source of truth:
+The server translates between protobuf enum values and JSON strings. This table is the source of truth:
 
 | Protobuf Enum (`AckStatus`) | JSON `status` String | Notes |
 |-----------------------------|----------------------|-------|
@@ -581,11 +581,11 @@ The gateway translates between protobuf enum values and JSON strings. This table
 | `ACK_REJECTED` (1) | `"rejected"` | Vehicle refused command |
 | `ACK_COMPLETED` (2) | `"completed"` | Action finished successfully |
 | `ACK_FAILED` (3) | `"failed"` | Execution failed |
-| *(synthetic)* | `"timeout"` | Gateway-generated when vehicle doesn't respond |
+| *(synthetic)* | `"timeout"` | Server-generated when vehicle doesn't respond |
 
 **Implementation**: See [`internal/protocol/translate.go`](../internal/protocol/translate.go) for the mapping function.
 
-**Note**: The `timeout` status has no protobuf equivalent — it's synthesized by the gateway when `OPENC2_CMD_TIMEOUT` expires without a vehicle ack.
+**Note**: The `timeout` status has no protobuf equivalent — it's synthesized by the server when `TOWER_CMD_TIMEOUT` expires without a vehicle ack.
 
 ### Field Validation: ENV_UNKNOWN
 
@@ -610,7 +610,7 @@ The gateway translates between protobuf enum values and JSON strings. This table
 
 ## Vehicle Discovery
 
-**Dynamic**: Gateway creates registry entry on first telemetry, emits `status: online`.
+**Dynamic**: Server creates registry entry on first telemetry, emits `status: online`.
 
 **Static** (optional): `vehicles.yaml` pre-configures known fleet with display names.
 
@@ -629,7 +629,7 @@ The gateway translates between protobuf enum values and JSON strings. This table
 | `usv` | `usv-wam-v-02` |
 | `uuv` | `uuv-bluefin-01` |
 
-Special: `_gateway`, `_fleet`, `_client`
+Special: `_server`, `_fleet`, `_client`
 
 ---
 
@@ -649,21 +649,21 @@ Special: `_gateway`, `_fleet`, `_client`
 - Absolute time calculations
 - Timeout/expiry logic
 
-### Gateway Timestamps (`gatewayTimestampMs`)
+### Server Timestamps (`serverTimestampMs`)
 
-The gateway stamps each frame with its local time on receipt. This is the **authoritative timestamp** for:
+The server stamps each frame with its local time on receipt. This is the **authoritative timestamp** for:
 - Cross-vehicle event correlation
 - Replay/logging with accurate wall-clock time
 - Latency measurements
 
 ```json
-{"protocolVersion":1, "type":"telemetry", "vehicleId":"ugv-husky-07", "timestampMs":1710700800000, "gatewayTimestampMs":1710700800123, "data":{...}}
+{"protocolVersion":1, "type":"telemetry", "vehicleId":"ugv-husky-07", "timestampMs":1710700800000, "serverTimestampMs":1710700800123, "data":{...}}
 ```
 
 | Field | Source | Trust Level | Use For |
 |-------|--------|-------------|---------|
 | `timestampMs` | Vehicle | Untrusted | Display, per-vehicle ordering |
-| `gatewayTimestampMs` | Gateway | Authoritative | Correlation, logging, latency |
+| `serverTimestampMs` | Server | Authoritative | Correlation, logging, latency |
 
 ---
 
@@ -689,4 +689,4 @@ The gateway stamps each frame with its local time on receipt. This is the **auth
 | [`internal/protocol/validate.go`](../internal/protocol/validate.go) | Message validation |
 | [`internal/protocol/builders.go`](../internal/protocol/builders.go) | Frame constructors |
 | [`internal/protocol/sequence.go`](../internal/protocol/sequence.go) | Sequence tracking & deduplication |
-| [`api/proto/openc2.proto`](../api/proto/openc2.proto) | Protobuf schema |
+| [`api/proto/pidgin.proto`](../api/proto/pidgin.proto) | Protobuf schema |

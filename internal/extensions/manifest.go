@@ -1,7 +1,7 @@
 // Package extensions provides manifest registration for UI metadata.
 //
 // Each extension registers its manifest via RegisterManifest in init().
-// The gateway collects all manifests and includes them in the welcome payload.
+// The server collects all manifests and includes them in the welcome payload.
 package extensions
 
 import (

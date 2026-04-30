@@ -1,7 +1,7 @@
 // Skydio UAV Extension Protocol
 //
 // Extension telemetry and command definitions for Skydio autonomous drones.
-// This is an extension proto — payloads are carried inside openc2.ExtensionData.
+// This is an extension proto — payloads are carried inside pidgin.ExtensionData.
 //
 // See docs/EXTENSIBILITY.md for extension architecture.
 
@@ -9,10 +9,10 @@ syntax = "proto3";
 
 package skydio;
 
-option go_package = "github.com/EthanMBoos/openc2-gateway/internal/extensions/skydio";
+option go_package = "github.com/EthanMBoos/tower-server/internal/extensions/skydio";
 
 // ============================================================================
-// Telemetry (Vehicle → Gateway)
+// Telemetry (Vehicle → Server)
 // ============================================================================
 
 // SkydioTelemetry contains Skydio-specific state sent in VehicleTelemetry.extensions["skydio"].
@@ -113,7 +113,7 @@ message TrackingTarget {
 }
 
 // ============================================================================
-// Commands (Gateway → Vehicle)
+// Commands (Server → Vehicle)
 // ============================================================================
 
 // SetFlightModeCommand changes the flight mode.

@@ -1,19 +1,19 @@
 // Package husky provides the extension codec for Clearpath Husky A200 UGV.
 //
 // This codec decodes Husky-specific telemetry and encodes commands.
-// It registers itself via init() — import this package in cmd/gateway/main.go
+// It registers itself via init() — import this package in cmd/tower-server/main.go
 // to enable Husky support.
 //
 // Usage:
 //
-//	import _ "github.com/EthanMBoos/openc2-gateway/internal/extensions/husky"
+//	import _ "github.com/EthanMBoos/tower-server/internal/extensions/husky"
 package husky
 
 import (
 	"errors"
 	"fmt"
 
-	"github.com/EthanMBoos/openc2-gateway/internal/extensions"
+	"github.com/EthanMBoos/tower-server/internal/extensions"
 	"google.golang.org/protobuf/proto"
 )
 
